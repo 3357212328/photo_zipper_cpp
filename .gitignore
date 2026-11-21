@@ -1,0 +1,18 @@
+# Build artifacts
+build/
+cmake-build-*/
+out/
+.vs/
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+
+# Qt / CMake generated
+CMakeLists.txt.user*
+.qmlls.ini
+*.aps
+
+# Runtime samples & logs
+*.log
+samples/
