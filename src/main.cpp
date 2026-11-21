@@ -2,6 +2,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QQuickWindow>
 #include <QImageReader>
 #include <QIcon>
 #include <QFileInfo>
@@ -42,6 +43,55 @@ int main(int argc, char *argv[])
         Qt::QueuedConnection);
 
     engine.loadFromModule("PhotoZipper", "Main");
+
+    // Support "--capture-ui=<path>" and "--capture-active-ui=<path>" to render and grab the actual QQuickWindow screenshot for visual verification
+    for (const QString& arg : app.arguments()) {
+        if (arg.startsWith(QStringLiteral("--capture-active-ui="))) {
+            const QString outPng = arg.mid(QStringLiteral("--capture-active-ui=").length());
+            QTimer::singleShot(400, &app, [&]() {
+                compressCtrl.generateSampleImages();
+                QTimer::singleShot(300, &app, [&]() {
+                    compressCtrl.startBatchCompression();
+                });
+            });
+            QObject::connect(&compressCtrl, &CompressionController::runningChanged, &app, [&, outPng]() {
+                if (!compressCtrl.isRunning() && taskModel.completedCount() > 0) {
+                    const auto rootObjs = engine.rootObjects();
+                    if (!rootObjs.isEmpty()) {
+                        rootObjs.first()->setProperty("selectedTaskIndex", 0);
+                        rootObjs.first()->setProperty("showComparePanel", true);
+                        QMetaObject::invokeMethod(rootObjs.first(), "refreshSelectedPreview");
+                    }
+                    QTimer::singleShot(700, &app, [&, outPng]() {
+                        const auto objs = engine.rootObjects();
+                        if (!objs.isEmpty()) {
+                            if (auto* win = qobject_cast<QQuickWindow*>(objs.first())) {
+                                QImage shot = win->grabWindow();
+                                shot.save(outPng, "PNG");
+                            }
+                        }
+                        QCoreApplication::quit();
+                    });
+                }
+            });
+            return app.exec();
+        }
+        if (arg.startsWith(QStringLiteral("--capture-ui="))) {
+            const QString outPng = arg.mid(QStringLiteral("--capture-ui=").length());
+            QTimer::singleShot(900, &app, [&, outPng]() {
+                const auto rootObjs = engine.rootObjects();
+                if (!rootObjs.isEmpty()) {
+                    if (auto* win = qobject_cast<QQuickWindow*>(rootObjs.first())) {
+                        QImage shot = win->grabWindow();
+                        shot.save(outPng, "PNG");
+                        qInfo() << "UI_CAPTURED:" << outPng << shot.size();
+                    }
+                }
+                QCoreApplication::quit();
+            });
+            return app.exec();
+        }
+    }
 
     // Support "--self-test", "--test-engine-update", and "--test-local-update=<path>" flags for automated verification
     for (const QString& arg : app.arguments()) {

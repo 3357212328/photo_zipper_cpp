@@ -46,14 +46,28 @@ Popup {
     }
 
     Overlay.modal: Rectangle {
-        color: "#AA0E1013"
+        color: "#B50B0E14"
+        Behavior on opacity { NumberAnimation { duration: 180 } }
+    }
+
+    enter: Transition {
+        ParallelAnimation {
+            NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 200; easing.type: Easing.OutCubic }
+            NumberAnimation { property: "scale"; from: 0.92; to: 1.0; duration: 220; easing.type: Easing.OutBack }
+        }
+    }
+    exit: Transition {
+        ParallelAnimation {
+            NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 150; easing.type: Easing.InCubic }
+            NumberAnimation { property: "scale"; from: 1.0; to: 0.95; duration: 150; easing.type: Easing.InCubic }
+        }
     }
 
     background: Rectangle {
-        color: "#22252A"
-        radius: 12
+        color: "#1E222A"
+        radius: 14
         border.width: 1
-        border.color: "#434955"
+        border.color: "#3E4656"
     }
 
     ColumnLayout {

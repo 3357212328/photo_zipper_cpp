@@ -7,14 +7,16 @@ import "components"
 ApplicationWindow {
     id: window
     width: 1280
-    height: 840
-    minimumWidth: 1020
+    height: 820
+    minimumWidth: 1060
     minimumHeight: 680
     visible: true
     title: "PhotoZipper C++ · 现代高性能图片压缩工作站 (Powered by ImageMagick)"
-    color: "#1E2024"
+    color: "#16181D"
 
     property int selectedTaskIndex: -1
+    property int activeSettingsTab: 0   // 0=尺寸与压缩, 1=画质与水印, 2=输出与命令
+    property bool showComparePanel: false
     property string toastText: ""
     property bool toastError: false
 
@@ -44,7 +46,7 @@ ApplicationWindow {
 
     Timer {
         id: toastTimer
-        interval: 4200
+        interval: 4000
         onTriggered: window.toastText = ""
     }
 
@@ -113,7 +115,7 @@ ApplicationWindow {
         memoryMonitor: memMonitor
     }
 
-    // Full-window drag & drop support
+    // Global drag & drop
     DropArea {
         id: globalDropArea
         anchors.fill: parent
@@ -128,26 +130,35 @@ ApplicationWindow {
         anchors.fill: parent
         spacing: 0
 
-        // ==================== TOP HEADER BAR ====================
+        // ==================== 1. TOP NAVIGATION HEADER (Strictly Fixed 56px Height) ====================
         Rectangle {
             Layout.fillWidth: true
-            height: 58
-            color: "#17191C"
+            Layout.preferredHeight: 56
+            Layout.minimumHeight: 56
+            Layout.maximumHeight: 56
+            color: "#111318"
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 20
-                anchors.rightMargin: 20
-                spacing: 14
+                anchors.leftMargin: 18
+                anchors.rightMargin: 18
+                spacing: 12
 
-                // Brand Logo (Designed App Icon)
-                Image {
-                    width: 38
-                    height: 38
-                    source: "qrc:/icons/app_icon.png"
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    mipmap: true
+                // Brand App Icon (Explicitly constrained to 34x34 so it NEVER inflates the layout)
+                Rectangle {
+                    Layout.preferredWidth: 36
+                    Layout.preferredHeight: 36
+                    radius: 8
+                    color: "transparent"
+
+                    Image {
+                        anchors.fill: parent
+                        source: "qrc:/icons/app_icon.png"
+                        sourceSize.width: 36
+                        sourceSize.height: 36
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                    }
                 }
 
                 ColumnLayout {
@@ -155,56 +166,66 @@ ApplicationWindow {
                     Text {
                         text: "PhotoZipper C++"
                         font.family: "Segoe UI"
-                        font.pixelSize: 16
+                        font.pixelSize: 15
                         font.bold: true
-                        color: "#F1F5F9"
+                        color: "#F8FAFC"
                     }
                     Text {
-                        text: "Qt Quick 6.8 · 内嵌 ImageMagick 高性能图像压缩引擎"
+                        text: "Qt Quick 6.8 · 内嵌单版本 ImageMagick 高性能图像压缩工作站"
                         font.family: "Microsoft YaHei UI"
                         font.pixelSize: 11
-                        color: "#8A919E"
+                        color: "#64748B"
                     }
                 }
 
                 Item { Layout.fillWidth: true }
 
-                // Resource & Memory Monitor Pill
+                // Live Memory & Binary Footprint Pill
                 Rectangle {
-                    height: 34
-                    width: resRow.implicitWidth + 24
-                    radius: 17
-                    color: "#23262C"
-                    border.color: "#343942"
+                    Layout.preferredHeight: 32
+                    Layout.preferredWidth: resRow.implicitWidth + 22
+                    radius: 16
+                    color: "#1A1E26"
+                    border.color: "#2A303C"
 
                     RowLayout {
                         id: resRow
                         anchors.centerIn: parent
-                        spacing: 14
+                        spacing: 12
 
-                        Text {
-                            text: "🧠 运行内存: " + memMonitor.appMemoryText
-                            font.family: "Microsoft YaHei UI"
-                            font.pixelSize: 12
-                            color: "#A5F3FC"
+                        RowLayout {
+                            spacing: 5
+                            Rectangle { width: 6; height: 6; radius: 3; color: "#38BDF8" }
+                            Text {
+                                text: "内存: " + memMonitor.appMemoryText
+                                font.family: "Microsoft YaHei UI"
+                                font.pixelSize: 11
+                                color: "#BAE6FD"
+                            }
                         }
-                        Rectangle { width: 1; height: 14; color: "#3A3F4B" }
+                        Rectangle { width: 1; height: 12; color: "#2E3543" }
                         Text {
-                            text: "📦 主程序: " + memMonitor.appBinarySizeText + " · 引擎: " + memMonitor.engineSizeText
+                            text: "主程序: " + memMonitor.appBinarySizeText + " · 引擎: " + memMonitor.engineSizeText
                             font.family: "Microsoft YaHei UI"
-                            font.pixelSize: 12
-                            color: "#CBD5E1"
+                            font.pixelSize: 11
+                            color: "#94A3B8"
                         }
                     }
                 }
 
-                // Embedded ImageMagick Status & Version Switcher Button
+                // Embedded ImageMagick Version & Manager Button
                 Rectangle {
-                    height: 36
-                    width: engBtnRow.implicitWidth + 24
+                    id: engineHeaderBtn
+                    Layout.preferredHeight: 34
+                    Layout.preferredWidth: engBtnRow.implicitWidth + 22
                     radius: 8
-                    color: engMa.containsMouse ? "#2F3642" : "#262A32"
-                    border.color: engineMgr.isInstalled ? "#4E74A6" : "#E11D48"
+                    color: engMa.containsMouse ? "#252C38" : "#1C2029"
+                    border.color: engineMgr.isInstalled ? (engMa.containsMouse ? "#60A5FA" : "#384761") : "#F43F5E"
+                    scale: engMa.pressed ? 0.96 : 1.0
+
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on border.color { ColorAnimation { duration: 150 } }
+                    Behavior on scale { NumberAnimation { duration: 110 } }
 
                     RowLayout {
                         id: engBtnRow
@@ -220,22 +241,23 @@ ApplicationWindow {
                         Text {
                             text: engineMgr.isInstalled
                                   ? ("ImageMagick " + engineMgr.currentVersion + " (" + engineMgr.currentQuantum + ")")
-                                  : "未安装引擎 (点击一键内嵌)"
-                            font.family: "Microsoft YaHei UI"
+                                  : "未安装引擎"
+                            font.family: "Segoe UI"
                             font.pixelSize: 12
                             font.bold: true
                             color: "#E2E8F0"
                         }
                         Rectangle {
-                            radius: 4
-                            color: "#375582"
-                            height: 20
-                            width: 62
+                            radius: 5
+                            color: "#2563EB"
+                            Layout.preferredHeight: 20
+                            Layout.preferredWidth: 64
                             Text {
                                 anchors.centerIn: parent
                                 text: "引擎管理"
                                 font.family: "Microsoft YaHei UI"
                                 font.pixelSize: 11
+                                font.bold: true
                                 color: "#FFFFFF"
                             }
                         }
@@ -255,30 +277,32 @@ ApplicationWindow {
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: 1
-                color: "#2B2F37"
+                color: "#222630"
             }
         }
 
-        // ==================== MAIN WORKSPACE ====================
+        // ==================== 2. MAIN WORKSPACE ====================
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.margins: 16
-            spacing: 16
+            Layout.margins: 14
+            spacing: 14
 
-            // ---------- LEFT PANE: Batch Queue + Before/After Split Preview ----------
+            // ---------- LEFT WORKSPACE: Toolbar + Queue List + Animated Collapsible Preview ----------
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 12
+                spacing: 10
 
-                // Action Toolbar
+                // Top Action Bar
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 50
+                    Layout.preferredHeight: 48
+                    Layout.minimumHeight: 48
+                    Layout.maximumHeight: 48
                     radius: 10
-                    color: "#26292E"
-                    border.color: "#343842"
+                    color: "#1E222A"
+                    border.color: "#2C323E"
 
                     RowLayout {
                         anchors.fill: parent
@@ -288,17 +312,21 @@ ApplicationWindow {
 
                         // Add Files Button
                         Rectangle {
-                            height: 34
-                            width: 104
-                            radius: 6
-                            color: addFileMa.containsMouse ? "#A5CDFC" : "#94C1FA"
+                            Layout.preferredHeight: 32
+                            Layout.preferredWidth: 102
+                            radius: 7
+                            color: addFileMa.containsMouse ? "#60A5FA" : "#3B82F6"
+                            scale: addFileMa.pressed ? 0.95 : 1.0
+                            Behavior on color { ColorAnimation { duration: 140 } }
+                            Behavior on scale { NumberAnimation { duration: 100 } }
+
                             Text {
                                 anchors.centerIn: parent
                                 text: "＋ 添加图片"
                                 font.family: "Microsoft YaHei UI"
-                                font.pixelSize: 13
+                                font.pixelSize: 12
                                 font.bold: true
-                                color: "#10151E"
+                                color: "#FFFFFF"
                             }
                             MouseArea {
                                 id: addFileMa
@@ -311,11 +339,15 @@ ApplicationWindow {
 
                         // Add Folder Button
                         Rectangle {
-                            height: 34
-                            width: 112
-                            radius: 6
-                            color: addDirMa.containsMouse ? "#383D47" : "#2F333B"
-                            border.color: "#454B57"
+                            Layout.preferredHeight: 32
+                            Layout.preferredWidth: 110
+                            radius: 7
+                            color: addDirMa.containsMouse ? "#2E3543" : "#252A34"
+                            border.color: addDirMa.containsMouse ? "#4E596F" : "#373E4C"
+                            scale: addDirMa.pressed ? 0.95 : 1.0
+                            Behavior on color { ColorAnimation { duration: 140 } }
+                            Behavior on scale { NumberAnimation { duration: 100 } }
+
                             Text {
                                 anchors.centerIn: parent
                                 text: "📁 添加文件夹"
@@ -334,17 +366,22 @@ ApplicationWindow {
 
                         // Generate Sample Test Images Button
                         Rectangle {
-                            height: 34
-                            width: 122
-                            radius: 6
-                            color: sampleMa.containsMouse ? "#383D47" : "#2F333B"
-                            border.color: "#454B57"
+                            Layout.preferredHeight: 32
+                            Layout.preferredWidth: 118
+                            radius: 7
+                            color: sampleMa.containsMouse ? "#2E3543" : "#252A34"
+                            border.color: sampleMa.containsMouse ? "#60A5FA" : "#373E4C"
+                            scale: sampleMa.pressed ? 0.95 : 1.0
+                            Behavior on color { ColorAnimation { duration: 140 } }
+                            Behavior on border.color { ColorAnimation { duration: 140 } }
+                            Behavior on scale { NumberAnimation { duration: 100 } }
+
                             Text {
                                 anchors.centerIn: parent
                                 text: "✨ 导入测试样张"
                                 font.family: "Microsoft YaHei UI"
                                 font.pixelSize: 12
-                                color: "#94C1FA"
+                                color: "#93C5FD"
                             }
                             MouseArea {
                                 id: sampleMa
@@ -358,55 +395,73 @@ ApplicationWindow {
                         Item { Layout.fillWidth: true }
 
                         // Summary statistics pill
-                        Text {
+                        Rectangle {
                             visible: taskModel.totalCount > 0
-                            text: "共 " + taskModel.totalCount + " 张 · 原总计 " + taskModel.totalOriginalSizeText
-                                  + " → 压缩后 " + taskModel.totalCompressedSizeText
-                                  + " (已省 " + taskModel.totalSavedText + ")"
-                            font.family: "Microsoft YaHei UI"
-                            font.pixelSize: 12
-                            color: "#86EFAC"
+                            Layout.preferredHeight: 28
+                            Layout.preferredWidth: statRow.implicitWidth + 18
+                            radius: 14
+                            color: "#15241D"
+                            border.color: "#234733"
+
+                            RowLayout {
+                                id: statRow
+                                anchors.centerIn: parent
+                                spacing: 6
+                                Text {
+                                    text: "共 " + taskModel.totalCount + " 张 · " + taskModel.totalOriginalSizeText
+                                          + " → " + taskModel.totalCompressedSizeText
+                                          + " (省 " + taskModel.totalSavedText + ")"
+                                    font.family: "Microsoft YaHei UI"
+                                    font.pixelSize: 11
+                                    color: "#86EFAC"
+                                }
+                            }
                         }
 
-                        // Clear Completed
+                        // Toggle Split Preview Button
                         Rectangle {
-                            visible: taskModel.completedCount > 0
-                            height: 30
-                            width: 84
-                            radius: 6
-                            color: clrDoneMa.containsMouse ? "#383D47" : "transparent"
-                            border.color: "#454B57"
+                            Layout.preferredHeight: 30
+                            Layout.preferredWidth: 96
+                            radius: 7
+                            color: window.showComparePanel
+                                   ? "#1E3A8A"
+                                   : (cmpToggleMa.containsMouse ? "#2E3543" : "#252A34")
+                            border.color: window.showComparePanel ? "#60A5FA" : "#373E4C"
+                            scale: cmpToggleMa.pressed ? 0.95 : 1.0
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            Behavior on scale { NumberAnimation { duration: 100 } }
+
                             Text {
                                 anchors.centerIn: parent
-                                text: "清理已完成"
+                                text: window.showComparePanel ? "👁 收起对比" : "👁 画质对比"
                                 font.family: "Microsoft YaHei UI"
                                 font.pixelSize: 11
-                                color: "#CBD5E1"
+                                font.bold: window.showComparePanel
+                                color: window.showComparePanel ? "#93C5FD" : "#CBD5E1"
                             }
                             MouseArea {
-                                id: clrDoneMa
+                                id: cmpToggleMa
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    taskModel.clearCompleted()
-                                    window.selectedTaskIndex = taskModel.totalCount > 0 ? 0 : -1
-                                    window.refreshSelectedPreview()
-                                }
+                                onClicked: window.showComparePanel = !window.showComparePanel
                             }
                         }
 
                         // Clear All
                         Rectangle {
                             visible: taskModel.totalCount > 0
-                            height: 30
-                            width: 72
-                            radius: 6
-                            color: clrAllMa.containsMouse ? "#4C1D24" : "transparent"
-                            border.color: "#573239"
+                            Layout.preferredHeight: 30
+                            Layout.preferredWidth: 68
+                            radius: 7
+                            color: clrAllMa.containsMouse ? "#4C1D24" : "#252A34"
+                            border.color: clrAllMa.containsMouse ? "#F43F5E" : "#373E4C"
+                            scale: clrAllMa.pressed ? 0.95 : 1.0
+                            Behavior on color { ColorAnimation { duration: 140 } }
+
                             Text {
                                 anchors.centerIn: parent
-                                text: "清空列表"
+                                text: "清空"
                                 font.family: "Microsoft YaHei UI"
                                 font.pixelSize: 11
                                 color: "#FDA4AF"
@@ -419,6 +474,7 @@ ApplicationWindow {
                                 onClicked: {
                                     taskModel.clearAll()
                                     window.selectedTaskIndex = -1
+                                    window.showComparePanel = false
                                     window.refreshSelectedPreview()
                                 }
                             }
@@ -426,79 +482,109 @@ ApplicationWindow {
                     }
                 }
 
-                // Task Queue List Card
+                // Task Queue Area
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.preferredHeight: 330
-                    color: "#23262B"
-                    radius: 10
-                    border.color: globalDropArea.containsDrag ? "#94C1FA" : "#343842"
+                    color: "#1B1E25"
+                    radius: 12
+                    border.color: globalDropArea.containsDrag ? "#60A5FA" : "#2A303C"
                     border.width: globalDropArea.containsDrag ? 2 : 1
                     clip: true
 
-                    // Empty Dropzone prompt
+                    Behavior on border.color { ColorAnimation { duration: 180 } }
+
+                    // Empty Dropzone State with Breathing Pulse Animation
                     ColumnLayout {
                         anchors.centerIn: parent
                         visible: taskModel.totalCount === 0
-                        spacing: 12
+                        opacity: visible ? 1.0 : 0.0
+                        spacing: 14
+
+                        Behavior on opacity { NumberAnimation { duration: 220 } }
 
                         Rectangle {
+                            id: dropCircle
                             Layout.alignment: Qt.AlignHCenter
-                            width: 68
-                            height: 68
-                            radius: 34
-                            color: "#2C3038"
-                            border.color: "#434956"
+                            width: 76
+                            height: 76
+                            radius: 38
+                            color: "#222731"
+                            border.color: "#3B82F6"
+                            border.width: 1.5
+
+                            SequentialAnimation on scale {
+                                loops: Animation.Infinite
+                                running: taskModel.totalCount === 0
+                                NumberAnimation { from: 1.0; to: 1.06; duration: 1600; easing.type: Easing.InOutSine }
+                                NumberAnimation { from: 1.06; to: 1.0; duration: 1600; easing.type: Easing.InOutSine }
+                            }
+
                             Text {
                                 anchors.centerIn: parent
                                 text: "📥"
-                                font.pixelSize: 30
+                                font.pixelSize: 32
                             }
                         }
+
                         Text {
                             Layout.alignment: Qt.AlignHCenter
-                            text: "拖拽图片或整个文件夹到这里"
+                            text: "拖拽图片或文件夹到这里开始压缩"
                             font.family: "Microsoft YaHei UI"
-                            font.pixelSize: 16
+                            font.pixelSize: 17
                             font.bold: true
-                            color: "#E2E8F0"
+                            color: "#F1F5F9"
                         }
+
                         Text {
                             Layout.alignment: Qt.AlignHCenter
-                            text: "支持 JPG / PNG / WebP / AVIF / JXL / HEIC / TIFF / BMP / GIF 等全格式批量处理"
+                            text: "支持 JPG / PNG / WebP / AVIF / JXL / HEIC / TIFF / BMP 等全格式高并发处理"
                             font.family: "Microsoft YaHei UI"
                             font.pixelSize: 12
-                            color: "#8A919E"
+                            color: "#64748B"
                         }
+
                         RowLayout {
                             Layout.alignment: Qt.AlignHCenter
                             spacing: 12
+
                             Rectangle {
-                                width: 132
-                                height: 36
-                                radius: 6
-                                color: "#94C1FA"
+                                Layout.preferredWidth: 136
+                                Layout.preferredHeight: 38
+                                radius: 8
+                                color: emptyAddMa.containsMouse ? "#60A5FA" : "#3B82F6"
+                                scale: emptyAddMa.pressed ? 0.96 : 1.0
+                                Behavior on color { ColorAnimation { duration: 140 } }
+                                Behavior on scale { NumberAnimation { duration: 100 } }
+
                                 Text {
                                     anchors.centerIn: parent
-                                    text: "选择本地图片"
+                                    text: "＋ 选择本地图片"
                                     font.family: "Microsoft YaHei UI"
                                     font.pixelSize: 13
                                     font.bold: true
-                                    color: "#11161F"
+                                    color: "#FFFFFF"
                                 }
                                 MouseArea {
+                                    id: emptyAddMa
                                     anchors.fill: parent
+                                    hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: addFilesDialog.open()
                                 }
                             }
+
                             Rectangle {
-                                width: 156
-                                height: 36
-                                radius: 6
-                                color: "#2F343D"
-                                border.color: "#4B5362"
+                                Layout.preferredWidth: 158
+                                Layout.preferredHeight: 38
+                                radius: 8
+                                color: emptySampleMa.containsMouse ? "#2C3342" : "#232833"
+                                border.color: emptySampleMa.containsMouse ? "#60A5FA" : "#3A4252"
+                                scale: emptySampleMa.pressed ? 0.96 : 1.0
+                                Behavior on color { ColorAnimation { duration: 140 } }
+                                Behavior on border.color { ColorAnimation { duration: 140 } }
+                                Behavior on scale { NumberAnimation { duration: 100 } }
+
                                 Text {
                                     anchors.centerIn: parent
                                     text: "✨ 一键生成测试样张"
@@ -507,7 +593,9 @@ ApplicationWindow {
                                     color: "#E2E8F0"
                                 }
                                 MouseArea {
+                                    id: emptySampleMa
                                     anchors.fill: parent
+                                    hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: compressCtrl.generateSampleImages()
                                 }
@@ -515,22 +603,43 @@ ApplicationWindow {
                         }
                     }
 
+                    // Animated Task ListView
                     ListView {
                         id: taskListView
                         anchors.fill: parent
-                        anchors.margins: 8
-                        spacing: 6
+                        anchors.margins: 10
+                        spacing: 8
                         visible: taskModel.totalCount > 0
                         model: taskModel
                         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
+                        add: Transition {
+                            ParallelAnimation {
+                                NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic }
+                                NumberAnimation { property: "y"; from: 20; duration: 220; easing.type: Easing.OutCubic }
+                            }
+                        }
+                        remove: Transition {
+                            ParallelAnimation {
+                                NumberAnimation { property: "opacity"; to: 0; duration: 160 }
+                                NumberAnimation { property: "scale"; to: 0.92; duration: 160 }
+                            }
+                        }
+                        displaced: Transition {
+                            NumberAnimation { properties: "x,y"; duration: 180; easing.type: Easing.OutCubic }
+                        }
+
                         delegate: Rectangle {
-                            width: taskListView.width - 10
-                            height: 62
-                            radius: 8
+                            width: taskListView.width - 8
+                            height: 64
+                            radius: 10
                             readonly property bool isSelected: index === window.selectedTaskIndex
-                            color: isSelected ? "#2D384B" : (rowMa.containsMouse ? "#2B2F37" : "#282B31")
-                            border.color: isSelected ? "#6E9EE0" : "#353942"
+                            color: isSelected ? "#233047" : (rowMa.containsMouse ? "#242A35" : "#20242D")
+                            border.color: isSelected ? "#3B82F6" : (rowMa.containsMouse ? "#384152" : "#2B303C")
+                            border.width: isSelected ? 1.5 : 1
+
+                            Behavior on color { ColorAnimation { duration: 140 } }
+                            Behavior on border.color { ColorAnimation { duration: 140 } }
 
                             MouseArea {
                                 id: rowMa
@@ -539,23 +648,24 @@ ApplicationWindow {
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     window.selectedTaskIndex = index
+                                    window.showComparePanel = true
                                     window.refreshSelectedPreview()
                                 }
                             }
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 10
+                                anchors.leftMargin: 12
                                 anchors.rightMargin: 12
                                 spacing: 12
 
-                                // Low-memory thumbnail (capped at 96x96 sourceSize)
+                                // Low-memory thumbnail
                                 Rectangle {
-                                    width: 46
-                                    height: 46
-                                    radius: 6
-                                    color: "#1B1D21"
-                                    border.color: "#3D424D"
+                                    Layout.preferredWidth: 46
+                                    Layout.preferredHeight: 46
+                                    radius: 7
+                                    color: "#14171D"
+                                    border.color: "#333A48"
                                     clip: true
 
                                     Image {
@@ -573,14 +683,14 @@ ApplicationWindow {
                                 // File name & dimensions
                                 ColumnLayout {
                                     Layout.fillWidth: true
-                                    spacing: 3
+                                    spacing: 4
                                     RowLayout {
-                                        spacing: 6
+                                        spacing: 8
                                         Rectangle {
                                             radius: 4
-                                            color: "#363C48"
-                                            height: 18
-                                            width: fmtTxt.implicitWidth + 10
+                                            color: "#1E3A8A"
+                                            Layout.preferredHeight: 18
+                                            Layout.preferredWidth: fmtTxt.implicitWidth + 10
                                             Text {
                                                 id: fmtTxt
                                                 anchors.centerIn: parent
@@ -588,7 +698,7 @@ ApplicationWindow {
                                                 font.family: "Segoe UI"
                                                 font.pixelSize: 10
                                                 font.bold: true
-                                                color: "#94C1FA"
+                                                color: "#93C5FD"
                                             }
                                         }
                                         Text {
@@ -598,23 +708,23 @@ ApplicationWindow {
                                             font.family: "Microsoft YaHei UI"
                                             font.pixelSize: 13
                                             font.bold: true
-                                            color: "#F1F5F9"
+                                            color: "#F8FAFC"
                                         }
                                     }
                                     Text {
-                                        text: "原尺寸: " + model.dimensionsText
-                                              + (model.outputDimensionsText !== "-" ? ("  →  新尺寸: " + model.outputDimensionsText) : "")
-                                              + (model.elapsedMs > 0 ? ("  ·  耗时 " + model.elapsedMs + " ms") : "")
+                                        text: "分辨率: " + model.dimensionsText
+                                              + (model.outputDimensionsText !== "-" ? ("  →  " + model.outputDimensionsText) : "")
+                                              + (model.elapsedMs > 0 ? ("  ·  " + model.elapsedMs + " ms") : "")
                                         font.family: "Microsoft YaHei UI"
                                         font.pixelSize: 11
-                                        color: "#8E96A4"
+                                        color: "#8A94A6"
                                     }
                                 }
 
                                 // Size before -> after
                                 ColumnLayout {
                                     Layout.alignment: Qt.AlignRight
-                                    spacing: 2
+                                    spacing: 3
                                     Text {
                                         Layout.alignment: Qt.AlignRight
                                         text: model.originalSizeText + (model.compressedSize > 0 ? (" → " + model.compressedSizeText) : "")
@@ -625,21 +735,23 @@ ApplicationWindow {
                                     }
                                     Text {
                                         Layout.alignment: Qt.AlignRight
-                                        text: model.savedPercentText !== "-" ? ("体积变化: " + model.savedPercentText) : "等待处理"
+                                        text: model.savedPercentText !== "-" ? ("节省 " + model.savedPercentText) : "就绪"
                                         font.family: "Microsoft YaHei UI"
                                         font.pixelSize: 11
-                                        color: model.savedPositive ? "#4ADE80" : "#94A3B8"
+                                        font.bold: model.savedPositive
+                                        color: model.savedPositive ? "#4ADE80" : "#64748B"
                                     }
                                 }
 
                                 // Status badge
                                 Rectangle {
-                                    width: 68
-                                    height: 26
+                                    Layout.preferredWidth: 66
+                                    Layout.preferredHeight: 26
                                     radius: 6
                                     color: model.status === "已完成" ? "#14532D"
                                          : (model.status === "处理中" ? "#1E3A8A"
-                                         : (model.status === "失败" ? "#7F1D1D" : "#32363F"))
+                                         : (model.status === "失败" ? "#7F1D1D" : "#2A303C"))
+                                    Behavior on color { ColorAnimation { duration: 180 } }
 
                                     Text {
                                         anchors.centerIn: parent
@@ -649,17 +761,17 @@ ApplicationWindow {
                                         font.bold: true
                                         color: model.status === "已完成" ? "#86EFAC"
                                              : (model.status === "处理中" ? "#93C5FD"
-                                             : (model.status === "失败" ? "#FCA5A5" : "#CBD5E1"))
+                                             : (model.status === "失败" ? "#FCA5A5" : "#94A3B8"))
                                     }
                                 }
 
                                 // Open output folder button
                                 Rectangle {
                                     visible: model.outputPath.length > 0
-                                    width: 28
-                                    height: 28
+                                    Layout.preferredWidth: 28
+                                    Layout.preferredHeight: 28
                                     radius: 6
-                                    color: locMa.containsMouse ? "#3E4552" : "transparent"
+                                    color: locMa.containsMouse ? "#333C4D" : "transparent"
                                     Text {
                                         anchors.centerIn: parent
                                         text: "📂"
@@ -676,15 +788,15 @@ ApplicationWindow {
 
                                 // Remove button
                                 Rectangle {
-                                    width: 26
-                                    height: 26
+                                    Layout.preferredWidth: 26
+                                    Layout.preferredHeight: 26
                                     radius: 6
                                     color: delMa.containsMouse ? "#4C1D24" : "transparent"
                                     Text {
                                         anchors.centerIn: parent
                                         text: "✕"
                                         font.pixelSize: 12
-                                        color: "#94A3B8"
+                                        color: delMa.containsMouse ? "#FDA4AF" : "#64748B"
                                     }
                                     MouseArea {
                                         id: delMa
@@ -705,28 +817,41 @@ ApplicationWindow {
                     }
                 }
 
-                // Interactive Before/After Split View Comparison
+                // Smoothly Animated Collapsible Before/After Split View
                 CompareView {
                     id: compareView
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 245
+                    Layout.preferredHeight: window.showComparePanel ? 250 : 0
+                    Layout.maximumHeight: window.showComparePanel ? 250 : 0
+                    opacity: window.showComparePanel ? 1.0 : 0.0
+                    visible: Layout.preferredHeight > 2
+
+                    Behavior on Layout.preferredHeight {
+                        NumberAnimation { duration: 260; easing.type: Easing.OutCubic }
+                    }
+                    Behavior on opacity {
+                        NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+                    }
                 }
             }
 
-            // ---------- RIGHT PANE: Settings & Compression Controls ----------
+            // ---------- RIGHT PANE: Clean Tabbed Settings Architecture (Zero Clutter) ----------
             ColumnLayout {
                 Layout.preferredWidth: 420
+                Layout.minimumWidth: 420
                 Layout.maximumWidth: 420
                 Layout.fillHeight: true
-                spacing: 12
+                spacing: 10
 
-                // Quick Preset Bar
+                // Quick Preset Selector Card
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 46
+                    Layout.preferredHeight: 48
+                    Layout.minimumHeight: 48
+                    Layout.maximumHeight: 48
                     radius: 10
-                    color: "#26292E"
-                    border.color: "#343842"
+                    color: "#1E222A"
+                    border.color: "#2C323E"
 
                     RowLayout {
                         anchors.fill: parent
@@ -735,11 +860,11 @@ ApplicationWindow {
                         spacing: 10
 
                         Text {
-                            text: "⚡ 快捷预设"
+                            text: "⚡ 预设方案"
                             font.family: "Microsoft YaHei UI"
-                            font.pixelSize: 13
+                            font.pixelSize: 12
                             font.bold: true
-                            color: "#DCE1E8"
+                            color: "#93C5FD"
                         }
 
                         ModernComboBox {
@@ -748,7 +873,7 @@ ApplicationWindow {
                                 "均衡瘦身 (5120×1080 仅缩小 + 82%)",
                                 "Web 极速优化 (转 WebP + 1080P)",
                                 "摄影高清归档 (原尺寸 + 92% 4:4:4)",
-                                "严格体积锁定 (≤ 200 KB 目标大小)",
+                                "严格体积锁定 (≤ 200 KB 目标上限)",
                                 "纯无损极限瘦身 (零画质损失去冗余)"
                             ]
                             onActivated: function(idx) {
@@ -758,44 +883,105 @@ ApplicationWindow {
                     }
                 }
 
-                // Scrollable Settings Cards
-                ScrollView {
-                    id: settingsScroll
+                // Segmented Animated Tab Bar (3 Clean Tabs instead of a messy wall of cards!)
+                Rectangle {
+                    id: tabBarContainer
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 40
+                    Layout.minimumHeight: 40
+                    Layout.maximumHeight: 40
+                    radius: 10
+                    color: "#181B22"
+                    border.color: "#282D38"
+
+                    readonly property real tabWidth: (width - 8) / 3
+
+                    // Sliding active pill indicator
+                    Rectangle {
+                        x: 4 + window.activeSettingsTab * tabBarContainer.tabWidth
+                        y: 4
+                        width: tabBarContainer.tabWidth
+                        height: parent.height - 8
+                        radius: 7
+                        color: "#2563EB"
+
+                        Behavior on x {
+                            NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+                        }
+                    }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        spacing: 0
+
+                        Repeater {
+                            model: ["📐 尺寸与压缩", "🎨 画质与水印", "📂 输出设置"]
+                            delegate: Item {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData
+                                    font.family: "Microsoft YaHei UI"
+                                    font.pixelSize: 12
+                                    font.bold: window.activeSettingsTab === index
+                                    color: window.activeSettingsTab === index ? "#FFFFFF" : "#94A3B8"
+                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: window.activeSettingsTab = index
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Tab Content Container (Animated Cross-Fade & Slide)
+                Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
+                    // ==================== TAB 0: 尺寸与压缩 (Core Resize & Compression) ====================
                     ColumnLayout {
-                        width: settingsScroll.availableWidth
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
                         spacing: 12
+                        visible: opacity > 0.01
+                        opacity: window.activeSettingsTab === 0 ? 1.0 : 0.0
+                        transform: Translate {
+                            x: window.activeSettingsTab === 0 ? 0 : -18
+                            Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                        }
+                        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
-                        // ==================== 1. 尺寸调整 (Modern Integrated Layout + Quick Resolution Chips) ====================
+                        // Card 1: 尺寸调整
                         SectionCard {
                             Layout.fillWidth: true
-                            title: "尺寸与分辨率控制"
-                            subtitle: "支持按指定宽高边界、百分比或最长边智能缩放"
+                            title: "尺寸调整"
+                            subtitle: "按指定宽高边界或比例智能缩放"
                             headerRight: [
                                 ModernCheckBox {
-                                    text: "启用调整"
+                                    text: "启用"
+                                    switchStyle: true
                                     checked: compressCtrl.resizeEnabled
                                     onToggled: function(c) { compressCtrl.resizeEnabled = c }
                                 }
                             ]
 
-                            // Quick Resolution Chips (一键常用尺寸)
+                            // Quick Resolution Chips
                             RowLayout {
                                 Layout.fillWidth: true
                                 enabled: compressCtrl.resizeEnabled
-                                opacity: compressCtrl.resizeEnabled ? 1.0 : 0.45
+                                opacity: compressCtrl.resizeEnabled ? 1.0 : 0.4
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
                                 spacing: 6
-
-                                Text {
-                                    text: "常用尺寸:"
-                                    font.family: "Microsoft YaHei UI"
-                                    font.pixelSize: 12
-                                    color: "#94A3B8"
-                                }
 
                                 Repeater {
                                     model: [
@@ -803,28 +989,33 @@ ApplicationWindow {
                                         { label: "4K UHD", w: 3840, h: 2160 },
                                         { label: "2K QHD", w: 2560, h: 1440 },
                                         { label: "1080P", w: 1920, h: 1080 },
-                                        { label: "Web端", w: 1280, h: 720 }
+                                        { label: "720P", w: 1280, h: 720 }
                                     ]
                                     delegate: Rectangle {
                                         readonly property bool active: compressCtrl.resizeMode === 0
                                                                        && compressCtrl.targetWidth === modelData.w
                                                                        && compressCtrl.targetHeight === modelData.h
-                                        height: 24
-                                        width: chipLbl.implicitWidth + 14
-                                        radius: 5
-                                        color: active ? "#2E456B" : "#22252A"
-                                        border.color: active ? "#94C1FA" : "#3B404B"
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 26
+                                        radius: 6
+                                        color: active ? "#1E3A8A" : (chipMa.containsMouse ? "#2D3340" : "#1E222A")
+                                        border.color: active ? "#60A5FA" : "#353B48"
+                                        scale: chipMa.pressed ? 0.94 : 1.0
+                                        Behavior on color { ColorAnimation { duration: 140 } }
+                                        Behavior on scale { NumberAnimation { duration: 100 } }
 
                                         Text {
-                                            id: chipLbl
                                             anchors.centerIn: parent
                                             text: modelData.label
                                             font.family: "Microsoft YaHei UI"
                                             font.pixelSize: 11
-                                            color: active ? "#E6F0FF" : "#A0A7B2"
+                                            font.bold: active
+                                            color: active ? "#93C5FD" : "#94A3B8"
                                         }
                                         MouseArea {
+                                            id: chipMa
                                             anchors.fill: parent
+                                            hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 compressCtrl.resizeMode = 0
@@ -836,17 +1027,18 @@ ApplicationWindow {
                                 }
                             }
 
-                            // Width & Height / Percentage Inputs
+                            // Width & Height Floating Inputs
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: 14
-                                opacity: compressCtrl.resizeEnabled ? 1.0 : 0.45
+                                spacing: 12
+                                opacity: compressCtrl.resizeEnabled ? 1.0 : 0.4
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
 
                                 FloatingInput {
                                     Layout.fillWidth: true
                                     labelText: compressCtrl.resizeMode === 1
                                                ? "缩放比例 (%)"
-                                               : (compressCtrl.resizeMode === 2 ? "最长边上限 (px)" : "最大宽度 (px)")
+                                               : (compressCtrl.resizeMode === 2 ? "最长边上限 (px)" : "宽度 (px)")
                                     text: compressCtrl.resizeMode === 1
                                           ? compressCtrl.resizePercentage.toString()
                                           : (compressCtrl.targetWidth > 0 ? compressCtrl.targetWidth.toString() : "")
@@ -867,15 +1059,15 @@ ApplicationWindow {
                                     visible: compressCtrl.resizeMode === 0
                                     text: "×"
                                     font.family: "Segoe UI"
-                                    font.pixelSize: 18
-                                    color: "#7C8594"
+                                    font.pixelSize: 16
+                                    color: "#64748B"
                                     Layout.topMargin: 8
                                 }
 
                                 FloatingInput {
                                     Layout.fillWidth: true
                                     visible: compressCtrl.resizeMode === 0
-                                    labelText: "最大高度 (px)"
+                                    labelText: "高度 (px)"
                                     text: compressCtrl.targetHeight > 0 ? compressCtrl.targetHeight.toString() : ""
                                     placeholderText: "不限制"
                                     inputEnabled: compressCtrl.resizeEnabled
@@ -887,57 +1079,45 @@ ApplicationWindow {
                                 }
                             }
 
-                            // Keep aspect ratio shrink only checkbox
                             ModernCheckBox {
                                 visible: compressCtrl.resizeMode === 0
                                 enabled: compressCtrl.resizeEnabled
-                                opacity: compressCtrl.resizeEnabled ? 1.0 : 0.45
-                                text: "保持宽高比 (仅缩小大图，不放大原图)"
+                                opacity: compressCtrl.resizeEnabled ? 1.0 : 0.4
+                                text: "保持宽高比 (仅缩小)"
                                 checked: compressCtrl.keepAspectRatioShrinkOnly
                                 onToggled: function(c) { compressCtrl.keepAspectRatioShrinkOnly = c }
                             }
 
-                            // Resize mode & resampling filter options
                             RowLayout {
                                 Layout.fillWidth: true
                                 enabled: compressCtrl.resizeEnabled
-                                opacity: compressCtrl.resizeEnabled ? 1.0 : 0.45
+                                opacity: compressCtrl.resizeEnabled ? 1.0 : 0.4
                                 spacing: 8
 
-                                Text {
-                                    text: "方式:"
-                                    font.family: "Microsoft YaHei UI"
-                                    font.pixelSize: 12
-                                    color: "#94A3B8"
-                                }
                                 ModernComboBox {
                                     Layout.fillWidth: true
                                     currentIndex: compressCtrl.resizeMode
                                     model: ["按宽高边界 (px)", "按百分比缩放 (%)", "限制最长边 (px)"]
                                     onActivated: function(idx) { compressCtrl.resizeMode = idx }
                                 }
-                                Text {
-                                    text: "重采样:"
-                                    font.family: "Microsoft YaHei UI"
-                                    font.pixelSize: 12
-                                    color: "#94A3B8"
-                                }
                                 ModernComboBox {
-                                    Layout.preferredWidth: 116
+                                    Layout.preferredWidth: 130
                                     currentIndex: compressCtrl.filterType
-                                    model: ["Lanczos", "Mitchell", "Catrom", "Triangle"]
+                                    model: ["Lanczos 滤波", "Mitchell 滤波", "Catrom 滤波", "Triangle 滤波"]
                                     onActivated: function(idx) { compressCtrl.filterType = idx }
                                 }
                             }
                         }
 
-                        // ==================== 2. 压缩质量与智能体积控制 ====================
+                        // Card 2: 压缩与编码策略
                         SectionCard {
                             Layout.fillWidth: true
                             title: "压缩与编码策略"
+                            subtitle: "画质平衡、目标体积锁定与格式转换"
                             headerRight: [
                                 ModernCheckBox {
-                                    text: "纯无损模式"
+                                    text: "无损模式"
+                                    switchStyle: true
                                     checked: compressCtrl.losslessMode
                                     onToggled: function(c) { compressCtrl.losslessMode = c }
                                 }
@@ -948,23 +1128,31 @@ ApplicationWindow {
                                 Layout.fillWidth: true
                                 spacing: 4
                                 enabled: !compressCtrl.losslessMode
-                                opacity: compressCtrl.losslessMode ? 0.45 : 1.0
+                                opacity: compressCtrl.losslessMode ? 0.4 : 1.0
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
 
                                 RowLayout {
                                     Layout.fillWidth: true
                                     Text {
                                         text: "压缩质量 (Quality)"
                                         font.family: "Microsoft YaHei UI"
-                                        font.pixelSize: 13
+                                        font.pixelSize: 12
                                         color: "#CBD5E1"
                                     }
                                     Item { Layout.fillWidth: true }
-                                    Text {
-                                        text: compressCtrl.quality + "%"
-                                        font.family: "Segoe UI"
-                                        font.pixelSize: 15
-                                        font.bold: true
-                                        color: "#94C1FA"
+                                    Rectangle {
+                                        radius: 5
+                                        color: "#1E3A8A"
+                                        Layout.preferredWidth: 46
+                                        Layout.preferredHeight: 22
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: compressCtrl.quality + "%"
+                                            font.family: "Segoe UI"
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                            color: "#93C5FD"
+                                        }
                                     }
                                 }
 
@@ -983,12 +1171,12 @@ ApplicationWindow {
                                         width: qSlider.availableWidth
                                         height: 6
                                         radius: 3
-                                        color: "#1B1D21"
+                                        color: "#181B22"
 
                                         Rectangle {
                                             width: qSlider.visualPosition * parent.width
                                             height: parent.height
-                                            color: "#94C1FA"
+                                            color: "#3B82F6"
                                             radius: 3
                                         }
                                     }
@@ -999,20 +1187,22 @@ ApplicationWindow {
                                         width: 18
                                         height: 18
                                         radius: 9
-                                        color: qSlider.pressed ? "#FFFFFF" : "#94C1FA"
-                                        border.color: "#15181E"
+                                        scale: qSlider.pressed ? 1.2 : 1.0
+                                        color: qSlider.pressed ? "#FFFFFF" : "#60A5FA"
+                                        border.color: "#1E3A8A"
                                         border.width: 2
+                                        Behavior on scale { NumberAnimation { duration: 120 } }
                                     }
                                 }
                             }
 
-                            // Target File Size Lock (目标体积锁定)
+                            // Target File Size Lock
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: 12
 
                                 ModernCheckBox {
-                                    text: "锁定最大文件体积 ≤"
+                                    text: "锁定最大体积 ≤"
                                     checked: compressCtrl.targetSizeEnabled
                                     onToggled: function(c) { compressCtrl.targetSizeEnabled = c }
                                 }
@@ -1033,84 +1223,87 @@ ApplicationWindow {
                             // Format Conversion & Chroma Subsampling
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: 10
+                                spacing: 8
 
-                                Text {
-                                    text: "输出格式:"
-                                    font.family: "Microsoft YaHei UI"
-                                    font.pixelSize: 12
-                                    color: "#94A3B8"
-                                }
                                 ModernComboBox {
                                     Layout.fillWidth: true
-                                    model: ["保持原格式", "JPEG (.jpg)", "WebP (.webp)", "AVIF (.avif)", "PNG (.png)", "JPEG XL (.jxl)"]
+                                    model: ["保持原格式", "转 JPEG (.jpg)", "转 WebP (.webp)", "转 AVIF (.avif)", "转 PNG (.png)", "转 JPEG XL (.jxl)"]
                                     onActivated: function(idx) {
                                         var fmts = ["original", "jpg", "webp", "avif", "png", "jxl"]
                                         compressCtrl.outputFormat = fmts[idx]
                                     }
                                 }
 
-                                Text {
-                                    text: "色度采样:"
-                                    font.family: "Microsoft YaHei UI"
-                                    font.pixelSize: 12
-                                    color: "#94A3B8"
-                                }
                                 ModernComboBox {
-                                    Layout.preferredWidth: 122
+                                    Layout.preferredWidth: 145
                                     currentIndex: compressCtrl.chromaSubsampling
-                                    model: ["自动采样", "4:2:0 (高压缩)", "4:4:4 (色彩无损)"]
+                                    model: ["色度: 自动采样", "色度: 4:2:0 高压缩", "色度: 4:4:4 无损色"]
                                     onActivated: function(idx) { compressCtrl.chromaSubsampling = idx }
                                 }
                             }
 
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: 16
+                                spacing: 14
                                 ModernCheckBox {
-                                    text: "渐进式 JPEG 加载"
+                                    text: "渐进式 JPEG"
                                     checked: compressCtrl.progressiveJpeg
                                     onToggled: function(c) { compressCtrl.progressiveJpeg = c }
                                 }
                                 ModernCheckBox {
-                                    text: "若压缩后变大则自动保留原图"
+                                    text: "防反向变大保护"
                                     checked: compressCtrl.skipIfLarger
                                     onToggled: function(c) { compressCtrl.skipIfLarger = c }
                                 }
                             }
                         }
+                    }
 
-                        // ==================== 3. 元数据隐私、画质增强与水印 ====================
+                    // ==================== TAB 1: 画质与水印 (Privacy, Enhancement & Watermark) ====================
+                    ColumnLayout {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        spacing: 12
+                        visible: opacity > 0.01
+                        opacity: window.activeSettingsTab === 1 ? 1.0 : 0.0
+                        transform: Translate {
+                            x: window.activeSettingsTab === 1 ? 0 : 18
+                            Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                        }
+                        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
                         SectionCard {
                             Layout.fillWidth: true
-                            title: "隐私清理、画质增强与水印"
+                            title: "元数据隐私与色彩管理"
+                            subtitle: "清理拍摄定位隐私并标准化色彩空间"
 
-                            GridLayout {
-                                Layout.fillWidth: true
-                                columns: 2
-                                rowSpacing: 8
-                                columnSpacing: 12
+                            ModernCheckBox {
+                                text: "剥离 EXIF / GPS / XMP 隐私元数据 (-strip)"
+                                checked: compressCtrl.stripMetadata
+                                onToggled: function(c) { compressCtrl.stripMetadata = c }
+                            }
+                            ModernCheckBox {
+                                text: "剥离前根据 EXIF 自动旋转回正方向 (-auto-orient)"
+                                checked: compressCtrl.autoOrient
+                                onToggled: function(c) { compressCtrl.autoOrient = c }
+                            }
+                            ModernCheckBox {
+                                text: "统一转换为标准 sRGB 网页色域 (-colorspace sRGB)"
+                                checked: compressCtrl.convertToSRGB
+                                onToggled: function(c) { compressCtrl.convertToSRGB = c }
+                            }
+                        }
 
-                                ModernCheckBox {
-                                    text: "剥离 EXIF/GPS 隐私信息"
-                                    checked: compressCtrl.stripMetadata
-                                    onToggled: function(c) { compressCtrl.stripMetadata = c }
-                                }
-                                ModernCheckBox {
-                                    text: "EXIF 自动旋转回正"
-                                    checked: compressCtrl.autoOrient
-                                    onToggled: function(c) { compressCtrl.autoOrient = c }
-                                }
-                                ModernCheckBox {
-                                    text: "统一转换为 sRGB 色域"
-                                    checked: compressCtrl.convertToSRGB
-                                    onToggled: function(c) { compressCtrl.convertToSRGB = c }
-                                }
-                                ModernCheckBox {
-                                    text: "缩放后自适应锐化补偿"
-                                    checked: compressCtrl.sharpenAfterResize
-                                    onToggled: function(c) { compressCtrl.sharpenAfterResize = c }
-                                }
+                        SectionCard {
+                            Layout.fillWidth: true
+                            title: "画质增强与防盗水印"
+                            subtitle: "由 ImageMagick 在同一次流水线中完成矢量合成"
+
+                            ModernCheckBox {
+                                text: "缩放后自适应 Unsharp 锐化补偿（提升缩略图清晰度）"
+                                checked: compressCtrl.sharpenAfterResize
+                                onToggled: function(c) { compressCtrl.sharpenAfterResize = c }
                             }
 
                             RowLayout {
@@ -1130,54 +1323,64 @@ ApplicationWindow {
                                 }
                             }
 
-                            // Watermark controls
+                            Rectangle { Layout.fillWidth: true; height: 1; color: "#323844" }
+
                             ModernCheckBox {
-                                text: "添加防盗文字水印 (ImageMagick 矢量渲染)"
+                                text: "叠加文字防盗水印"
+                                switchStyle: true
                                 checked: compressCtrl.watermarkEnabled
                                 onToggled: function(c) { compressCtrl.watermarkEnabled = c }
                             }
 
                             RowLayout {
                                 Layout.fillWidth: true
-                                visible: compressCtrl.watermarkEnabled
+                                enabled: compressCtrl.watermarkEnabled
+                                opacity: compressCtrl.watermarkEnabled ? 1.0 : 0.4
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
                                 spacing: 10
 
                                 FloatingInput {
                                     Layout.fillWidth: true
-                                    labelText: "水印文字"
+                                    labelText: "水印内容"
                                     text: compressCtrl.watermarkText
+                                    inputEnabled: compressCtrl.watermarkEnabled
                                     onEditingCompleted: function(v) { compressCtrl.watermarkText = v }
                                 }
 
                                 ModernComboBox {
-                                    Layout.preferredWidth: 106
+                                    Layout.preferredWidth: 112
                                     currentIndex: compressCtrl.watermarkPosition
                                     model: ["右下角", "左下角", "右上角", "左上角", "画面居中"]
                                     onActivated: function(idx) { compressCtrl.watermarkPosition = idx }
                                 }
                             }
                         }
+                    }
 
-                        // ==================== 4. 输出路径与并发控制 ====================
+                    // ==================== TAB 2: 输出设置 (Output Path, Naming & CLI Preview) ====================
+                    ColumnLayout {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        spacing: 12
+                        visible: opacity > 0.01
+                        opacity: window.activeSettingsTab === 2 ? 1.0 : 0.0
+                        transform: Translate {
+                            x: window.activeSettingsTab === 2 ? 0 : 18
+                            Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                        }
+                        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
                         SectionCard {
                             Layout.fillWidth: true
-                            title: "输出目录与并发控制"
+                            title: "输出目录与重命名规则"
+                            subtitle: "配置压缩后文件的存放位置与前后缀"
 
-                            RowLayout {
+                            ModernComboBox {
                                 Layout.fillWidth: true
-                                spacing: 10
-                                Text {
-                                    text: "保存位置:"
-                                    font.family: "Microsoft YaHei UI"
-                                    font.pixelSize: 12
-                                    color: "#94A3B8"
-                                }
-                                ModernComboBox {
-                                    Layout.fillWidth: true
-                                    currentIndex: compressCtrl.outputDirMode
-                                    model: ["原图同级 compressed 子文件夹", "指定自定义输出目录", "直接覆盖原文件"]
-                                    onActivated: function(idx) { compressCtrl.outputDirMode = idx }
-                                }
+                                currentIndex: compressCtrl.outputDirMode
+                                model: ["保存在原图同级 compressed 子文件夹", "保存到自定义输出目录", "直接覆盖原图片文件"]
+                                onActivated: function(idx) { compressCtrl.outputDirMode = idx }
                             }
 
                             RowLayout {
@@ -1188,14 +1391,16 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     labelText: "自定义输出路径"
                                     text: compressCtrl.customOutputDir
-                                    placeholderText: "请选择文件夹..."
+                                    placeholderText: "点击右侧浏览选择文件夹..."
                                     onEditingCompleted: function(v) { compressCtrl.customOutputDir = v }
                                 }
                                 Rectangle {
-                                    width: 68
-                                    height: 44
-                                    radius: 6
-                                    color: "#363B44"
+                                    Layout.preferredWidth: 72
+                                    Layout.preferredHeight: 44
+                                    Layout.topMargin: 8
+                                    radius: 8
+                                    color: browseMa.containsMouse ? "#384152" : "#2D3340"
+                                    border.color: "#475569"
                                     Text {
                                         anchors.centerIn: parent
                                         text: "浏览..."
@@ -1204,7 +1409,9 @@ ApplicationWindow {
                                         color: "#E2E8F0"
                                     }
                                     MouseArea {
+                                        id: browseMa
                                         anchors.fill: parent
+                                        hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: customOutputFolderDialog.open()
                                     }
@@ -1220,7 +1427,7 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     labelText: "文件名前缀"
                                     text: compressCtrl.filePrefix
-                                    placeholderText: "无"
+                                    placeholderText: "无前缀"
                                     onEditingCompleted: function(v) { compressCtrl.filePrefix = v }
                                 }
                                 FloatingInput {
@@ -1231,50 +1438,71 @@ ApplicationWindow {
                                     onEditingCompleted: function(v) { compressCtrl.fileSuffix = v }
                                 }
                             }
+                        }
 
-                            // Live ImageMagick CLI command preview box
+                        SectionCard {
+                            Layout.fillWidth: true
+                            title: "实时 ImageMagick 引擎指令预览"
+                            subtitle: "底层内嵌进程池实际执行的受控沙箱参数"
+
                             Rectangle {
                                 Layout.fillWidth: true
-                                height: 44
-                                radius: 6
-                                color: "#1B1D21"
-                                border.color: "#333740"
+                                Layout.preferredHeight: 74
+                                radius: 8
+                                color: "#14171D"
+                                border.color: "#2B313E"
 
                                 Text {
                                     anchors.fill: parent
-                                    anchors.margins: 8
+                                    anchors.margins: 10
                                     text: compressCtrl.commandPreview
                                     font.family: "Consolas"
-                                    font.pixelSize: 10
-                                    color: "#94A3B8"
+                                    font.pixelSize: 11
+                                    color: "#93C5FD"
                                     wrapMode: Text.WrapAnywhere
-                                    elide: Text.ElideRight
                                 }
                             }
                         }
                     }
                 }
 
-                // ==================== START / STOP BATCH BUTTON ====================
+                // ==================== Primary Start / Stop CTA Button ====================
                 Rectangle {
+                    id: startBtn
                     Layout.fillWidth: true
-                    height: 52
+                    Layout.preferredHeight: 50
+                    Layout.minimumHeight: 50
+                    Layout.maximumHeight: 50
                     radius: 10
+                    scale: startMa.pressed ? 0.97 : 1.0
                     color: compressCtrl.isRunning
-                           ? "#991B1B"
-                           : (startMa.containsMouse ? "#A7CEFC" : "#94C1FA")
+                           ? "#DC2626"
+                           : (startMa.containsMouse ? "#60A5FA" : "#3B82F6")
+
+                    Behavior on color { ColorAnimation { duration: 160 } }
+                    Behavior on scale { NumberAnimation { duration: 100 } }
+
+                    // Progress bar overlay while running
+                    Rectangle {
+                        visible: compressCtrl.isRunning
+                        width: parent.width * compressCtrl.batchProgress
+                        height: parent.height
+                        radius: 10
+                        color: "#33FFFFFF"
+                        Behavior on width { NumberAnimation { duration: 150 } }
+                    }
 
                     RowLayout {
                         anchors.centerIn: parent
                         spacing: 10
                         Text {
                             text: compressCtrl.isRunning
-                                  ? ("⏹ 停止压缩 (" + Math.round(compressCtrl.batchProgress * 100) + "%)")
+                                  ? ("⏹ 停止批量压缩 (" + Math.round(compressCtrl.batchProgress * 100) + "%)")
                                   : ("🚀 开始批量压缩 (" + taskModel.totalCount + " 张图片)")
                             font.family: "Microsoft YaHei UI"
-                            font.pixelSize: 16
+                            font.pixelSize: 15
                             font.bold: true
-                            color: compressCtrl.isRunning ? "#FFFFFF" : "#10151E"
+                            color: "#FFFFFF"
                         }
                     }
 
@@ -1296,17 +1524,21 @@ ApplicationWindow {
         }
     }
 
-    // Floating Toast Banner
+    // Animated Floating Toast Notification
     Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 28
-        visible: window.toastText.length > 0
+        anchors.bottomMargin: window.toastText.length > 0 ? 26 : 6
+        opacity: window.toastText.length > 0 ? 1.0 : 0.0
+        visible: opacity > 0.01
         height: 40
         width: toastLbl.implicitWidth + 36
         radius: 20
-        color: window.toastError ? "#991B1B" : "#1E3A5F"
-        border.color: window.toastError ? "#F87171" : "#94C1FA"
+        color: window.toastError ? "#991B1B" : "#1E3A8A"
+        border.color: window.toastError ? "#F87171" : "#60A5FA"
+
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
 
         Text {
             id: toastLbl
@@ -1314,6 +1546,7 @@ ApplicationWindow {
             text: window.toastText
             font.family: "Microsoft YaHei UI"
             font.pixelSize: 13
+            font.bold: true
             color: "#F8FAFC"
         }
     }

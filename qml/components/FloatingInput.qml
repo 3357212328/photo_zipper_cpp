@@ -10,13 +10,21 @@ Item {
     property var validator: null
     signal editingCompleted(string newValue)
 
-    implicitWidth: 165
-    implicitHeight: 54
+    implicitWidth: 150
+    implicitHeight: 52
 
-    // Top offset for floating label
     readonly property int boxTop: 8
+    readonly property bool isFocused: textInput.activeFocus
+    readonly property bool isHovered: hoverHandler.hovered
 
-    // Main outer rounded border box
+    scale: isFocused ? 1.01 : 1.0
+    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+
+    HoverHandler {
+        id: hoverHandler
+    }
+
+    // Outer rounded input box
     Rectangle {
         id: borderBox
         anchors.left: parent.left
@@ -24,33 +32,39 @@ Item {
         anchors.top: parent.top
         anchors.topMargin: root.boxTop
         anchors.bottom: parent.bottom
-        radius: 6
-        color: "transparent"
-        border.width: textInput.activeFocus ? 1.5 : 1
+        radius: 8
+        color: !root.inputEnabled
+               ? "#1C1F24"
+               : (root.isFocused ? "#1E2430" : (root.isHovered ? "#252A34" : "#21252D"))
+        border.width: root.isFocused ? 1.5 : 1
         border.color: !root.inputEnabled
-                      ? "#3E434C"
-                      : (textInput.activeFocus ? "#111317" : "#4A505A")
+                      ? "#2F343D"
+                      : (root.isFocused ? "#60A5FA" : (root.isHovered ? "#525B6C" : "#3B414D"))
 
-        Behavior on border.color { ColorAnimation { duration: 140 } }
+        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on border.color { ColorAnimation { duration: 150 } }
     }
 
-    // Mask behind floating label so top border breaks cleanly around the label text
+    // Floating label pill background
     Rectangle {
         x: 10
         y: 0
-        width: labelItem.implicitWidth + 8
+        width: labelItem.implicitWidth + 10
         height: 16
-        color: "#2B2E33"
+        radius: 4
+        color: "#262A32"
     }
 
     Text {
         id: labelItem
-        x: 14
+        x: 15
         y: 0
         text: root.labelText
         font.family: "Microsoft YaHei UI"
-        font.pixelSize: 12
-        color: !root.inputEnabled ? "#7C828D" : (textInput.activeFocus ? "#DCE1E8" : "#A0A7B2")
+        font.pixelSize: 11
+        font.bold: root.isFocused
+        color: !root.inputEnabled ? "#646B78" : (root.isFocused ? "#93C5FD" : "#94A3B8")
+        Behavior on color { ColorAnimation { duration: 150 } }
     }
 
     TextInput {
@@ -68,9 +82,10 @@ Item {
         selectByMouse: true
         clip: true
         font.family: "Segoe UI"
-        font.pixelSize: 16
-        color: root.inputEnabled ? "#E6EAF0" : "#777D88"
-        selectionColor: "#4A72B8"
+        font.pixelSize: 15
+        font.bold: true
+        color: root.inputEnabled ? "#F1F5F9" : "#646B78"
+        selectionColor: "#3B82F6"
 
         onTextEdited: {
             root.text = textInput.text
@@ -87,8 +102,8 @@ Item {
         anchors.verticalCenter: textInput.verticalCenter
         visible: textInput.text.length === 0 && root.placeholderText.length > 0
         text: root.placeholderText
-        font.family: "Segoe UI"
-        font.pixelSize: 15
-        color: "#636975"
+        font.family: "Microsoft YaHei UI"
+        font.pixelSize: 13
+        color: "#565E6C"
     }
 }
