@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="50%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#090D16"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="50%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="sunGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Rounded App Icon Squircle -->
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#bgGrad)" stroke="#334155" stroke-width="10"/>
+
+  <!-- Inner Subtle Glow Frame -->
+  <rect x="68" y="84" width="376" height="344" rx="44" fill="#162032" stroke="#475569" stroke-width="6"/>
+
+  <!-- Landscape Photo Element (Left/Bottom) -->
+  <circle cx="156" cy="166" r="34" fill="url(#sunGrad)"/>
+  <path d="M 74 374 L 178 242 L 264 332 L 336 254 L 438 374 L 438 392 C 438 410 424 422 406 422 L 106 422 C 88 422 74 410 74 392 Z" fill="url(#accentGrad)" opacity="0.92"/>
+  <path d="M 190 422 L 318 262 L 438 384 L 438 394 C 438 410 424 422 406 422 Z" fill="url(#emeraldGrad)" opacity="0.88"/>
+
+  <!-- Central Zipper Track (Symbolizing Photo Zipper & Compression) -->
+  <rect x="238" y="52" width="36" height="236" rx="12" fill="#0F172A" opacity="0.88"/>
+  <!-- Zipper Teeth -->
+  <rect x="224" y="76" width="28" height="14" rx="4" fill="#93C5FD"/>
+  <rect x="260" y="98" width="28" height="14" rx="4" fill="#93C5FD"/>
+  <rect x="224" y="120" width="28" height="14" rx="4" fill="#93C5FD"/>
+  <rect x="260" y="142" width="28" height="14" rx="4" fill="#93C5FD"/>
+  <rect x="224" y="164" width="28" height="14" rx="4" fill="#93C5FD"/>
+  <rect x="260" y="186" width="28" height="14" rx="4" fill="#93C5FD"/>
+
+  <!-- Zipper Slider / Pull Tab -->
+  <rect x="218" y="212" width="76" height="84" rx="20" fill="#F8FAFC" stroke="#3B82F6" stroke-width="8"/>
+  <rect x="242" y="242" width="28" height="34" rx="8" fill="#1E293B"/>
+
+  <!-- Inward Compression Arrows (Top Left & Top Right) -->
+  <path d="M 96 58 L 152 114 M 152 114 L 152 72 M 152 114 L 110 114" stroke="#38BDF8" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 416 58 L 360 114 M 360 114 L 360 72 M 360 114 L 402 114" stroke="#38BDF8" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

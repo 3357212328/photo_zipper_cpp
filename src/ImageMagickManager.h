@@ -47,6 +47,8 @@ public:
     Q_INVOKABLE void fetchReleases(int maxCount = 20);
     Q_INVOKABLE void installVersion(const QString& tagName, const QString& quantum = QString());
     Q_INVOKABLE void installLatestVersion();
+    Q_INVOKABLE void installFromLocalArchive(const QUrl& fileUrl);
+    Q_INVOKABLE void installFromLocalDirectory(const QUrl& dirUrl);
     Q_INVOKABLE void cancelDownload();
 
 signals:
@@ -62,6 +64,7 @@ private:
     void setStatus(const QString& msg);
     void startDownloadUrl(const QString& url, const QString& targetTag, const QString& quantum);
     bool extractAndSlimReplace(const QString& archivePath, const QString& targetTag, const QString& quantum, QString& errorMsg);
+    bool slimAndReplaceFromExtractedDir(const QString& sourceRoot, QString& detectedVer, QString& errorMsg);
     QString findAssetUrlForRelease(const QVariantMap& releaseMap, const QString& quantum) const;
 
     QNetworkAccessManager m_netManager;

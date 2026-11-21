@@ -3,6 +3,8 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QImageReader>
+#include <QIcon>
+#include <QFileInfo>
 
 #include "ImageTaskModel.h"
 #include "ImageMagickManager.h"
@@ -19,6 +21,7 @@ int main(int argc, char *argv[])
     app.setOrganizationName(QStringLiteral("PhotoZipper"));
     app.setApplicationName(QStringLiteral("PhotoZipperCpp"));
     app.setApplicationVersion(QStringLiteral("1.0.0"));
+    app.setWindowIcon(QIcon(QStringLiteral(":/icons/app_icon.png")));
 
     MemoryMonitor memMonitor;
     ImageMagickManager engineMgr;
@@ -40,7 +43,25 @@ int main(int argc, char *argv[])
 
     engine.loadFromModule("PhotoZipper", "Main");
 
-    // Support "--self-test" and "--test-engine-update" flags for automated verification
+    // Support "--self-test", "--test-engine-update", and "--test-local-update=<path>" flags for automated verification
+    for (const QString& arg : app.arguments()) {
+        if (arg.startsWith(QStringLiteral("--test-local-update="))) {
+            const QString localPath = arg.mid(QStringLiteral("--test-local-update=").length());
+            QObject::connect(&engineMgr, &ImageMagickManager::installationFinished, &app, [&](bool ok, const QString& msg) {
+                qInfo() << "LOCAL_UPDATE_FINISHED:" << ok << msg << "currentVersion=" << engineMgr.currentVersion();
+                QTimer::singleShot(400, &app, &QCoreApplication::quit);
+            });
+            QTimer::singleShot(300, &engineMgr, [&, localPath]() {
+                if (QFileInfo(localPath).isDir()) {
+                    engineMgr.installFromLocalDirectory(QUrl::fromLocalFile(localPath));
+                } else {
+                    engineMgr.installFromLocalArchive(QUrl::fromLocalFile(localPath));
+                }
+            });
+            return app.exec();
+        }
+    }
+
     if (app.arguments().contains(QStringLiteral("--test-engine-update"))) {
         QObject::connect(&engineMgr, &ImageMagickManager::releasesChanged, &app, [&]() {
             const QVariantList rels = engineMgr.availableReleases();

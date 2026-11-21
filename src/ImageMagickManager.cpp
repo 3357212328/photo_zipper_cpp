@@ -344,6 +344,119 @@ void ImageMagickManager::cancelDownload()
     }
 }
 
+void ImageMagickManager::installFromLocalArchive(const QUrl& fileUrl)
+{
+    if (m_isBusy) return;
+    const QString localPath = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    const QFileInfo fi(localPath);
+    if (!fi.exists() || !fi.isFile()) {
+        setStatus(QStringLiteral("所选本地文件不存在: %1").arg(localPath));
+        emit installationFinished(false, m_statusMessage);
+        return;
+    }
+
+    m_isBusy = true;
+    m_downloadProgress = 0.3;
+    emit busyChanged();
+    emit progressChanged();
+    setStatus(QStringLiteral("正在从本地压缩包 (%1) 导入并替换 ImageMagick 引擎...").arg(fi.fileName()));
+
+    (void)QtConcurrent::run([this, localPath, fileName = fi.fileName()]() {
+        QString err;
+        const bool ok = extractAndSlimReplace(localPath, fileName, QStringLiteral("Local"), err);
+
+        QMetaObject::invokeMethod(this, [this, ok, err]() {
+            m_isBusy = false;
+            m_downloadProgress = ok ? 1.0 : 0.0;
+            emit busyChanged();
+            emit progressChanged();
+            detectLocalEngine();
+
+            if (ok) {
+                setStatus(QStringLiteral("已成功从本地压缩包更新至 ImageMagick %1 (%2)，旧版本已彻底清除")
+                              .arg(m_currentVersion, m_currentQuantum));
+                emit installationFinished(true, m_statusMessage);
+            } else {
+                setStatus(QStringLiteral("本地压缩包导入失败: %1").arg(err));
+                emit installationFinished(false, m_statusMessage);
+            }
+        }, Qt::QueuedConnection);
+    });
+}
+
+void ImageMagickManager::installFromLocalDirectory(const QUrl& dirUrl)
+{
+    if (m_isBusy) return;
+    const QString localDir = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();
+    const QFileInfo fi(localDir);
+    if (!fi.exists() || !fi.isDir()) {
+        setStatus(QStringLiteral("所选本地目录不存在: %1").arg(localDir));
+        emit installationFinished(false, m_statusMessage);
+        return;
+    }
+
+    m_isBusy = true;
+    m_downloadProgress = 0.5;
+    emit busyChanged();
+    emit progressChanged();
+    setStatus(QStringLiteral("正在从本地目录 (%1) 校验、瘦身并替换 ImageMagick 引擎...").arg(fi.fileName()));
+
+    (void)QtConcurrent::run([this, localDir]() {
+        const QString appDir = QCoreApplication::applicationDirPath();
+        const QString stagingDir = QDir(appDir).filePath(QStringLiteral("engine/staging_im"));
+        QDir(stagingDir).removeRecursively();
+        QDir().mkpath(stagingDir);
+
+        // Locate magick.exe in localDir
+        QString sourceRoot = localDir;
+        if (!QFileInfo::exists(QDir(sourceRoot).filePath(QStringLiteral("magick.exe")))) {
+            QDirIterator it(localDir, {QStringLiteral("magick.exe")}, QDir::Files, QDirIterator::Subdirectories);
+            if (it.hasNext()) {
+                it.next();
+                sourceRoot = it.fileInfo().absolutePath();
+            }
+        }
+
+        // Copy only required files (magick.exe, *.xml, *.icc, *.txt, *.dll if dll build) to stagingDir
+        QDir srcDir(sourceRoot);
+        const QStringList redundantFiles = {
+            QStringLiteral("compare.exe"), QStringLiteral("composite.exe"),
+            QStringLiteral("conjure.exe"), QStringLiteral("identify.exe"),
+            QStringLiteral("mogrify.exe"), QStringLiteral("montage.exe"),
+            QStringLiteral("stream.exe"),  QStringLiteral("convert.exe"),
+            QStringLiteral("ChangeLog.md")
+        };
+
+        const QFileInfoList entries = srcDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
+        for (const QFileInfo& entry : entries) {
+            if (redundantFiles.contains(entry.fileName(), Qt::CaseInsensitive)) continue;
+            QFile::copy(entry.absoluteFilePath(), QDir(stagingDir).filePath(entry.fileName()));
+        }
+
+        QString detectedVer;
+        QString err;
+        const bool ok = slimAndReplaceFromExtractedDir(stagingDir, detectedVer, err);
+        QDir(stagingDir).removeRecursively();
+
+        QMetaObject::invokeMethod(this, [this, ok, err]() {
+            m_isBusy = false;
+            m_downloadProgress = ok ? 1.0 : 0.0;
+            emit busyChanged();
+            emit progressChanged();
+            detectLocalEngine();
+
+            if (ok) {
+                setStatus(QStringLiteral("已成功从本地目录切换至 ImageMagick %1 (%2)，旧版本已彻底清除")
+                              .arg(m_currentVersion, m_currentQuantum));
+                emit installationFinished(true, m_statusMessage);
+            } else {
+                setStatus(QStringLiteral("本地目录导入失败: %1").arg(err));
+                emit installationFinished(false, m_statusMessage);
+            }
+        }, Qt::QueuedConnection);
+    });
+}
+
 bool ImageMagickManager::extractAndSlimReplace(const QString& archivePath, const QString& targetTag, const QString& quantum, QString& errorMsg)
 {
     Q_UNUSED(targetTag);
@@ -351,14 +464,10 @@ bool ImageMagickManager::extractAndSlimReplace(const QString& archivePath, const
 
     const QString appDir = QCoreApplication::applicationDirPath();
     const QString stagingDir = QDir(appDir).filePath(QStringLiteral("engine/staging_im"));
-    const QString finalDir = engineDirectory();
-    const QString backupDir = QDir(appDir).filePath(QStringLiteral("engine/old_im"));
-
     QDir(stagingDir).removeRecursively();
-    QDir(backupDir).removeRecursively();
     QDir().mkpath(stagingDir);
 
-    // Use Windows built-in bsdtar (tar.exe) which natively supports .7z and .zip
+    // Use Windows built-in bsdtar (tar.exe) which natively supports .7z, .zip, .tar.xz, .tar.gz
     QProcess tarProc;
     tarProc.start(QStringLiteral("tar.exe"), {QStringLiteral("-xf"), archivePath, QStringLiteral("-C"), stagingDir});
     if (!tarProc.waitForFinished(60000) || tarProc.exitCode() != 0) {
@@ -366,6 +475,19 @@ bool ImageMagickManager::extractAndSlimReplace(const QString& archivePath, const
         QDir(stagingDir).removeRecursively();
         return false;
     }
+
+    QString detectedVer;
+    const bool ok = slimAndReplaceFromExtractedDir(stagingDir, detectedVer, errorMsg);
+    QDir(stagingDir).removeRecursively();
+    return ok;
+}
+
+bool ImageMagickManager::slimAndReplaceFromExtractedDir(const QString& stagingDir, QString& detectedVer, QString& errorMsg)
+{
+    const QString appDir = QCoreApplication::applicationDirPath();
+    const QString finalDir = engineDirectory();
+    const QString backupDir = QDir(appDir).filePath(QStringLiteral("engine/old_im"));
+    QDir(backupDir).removeRecursively();
 
     // Locate magick.exe (either directly in stagingDir or inside a subfolder)
     QString extractedRoot = stagingDir;
@@ -375,8 +497,7 @@ bool ImageMagickManager::extractAndSlimReplace(const QString& archivePath, const
             it.next();
             extractedRoot = it.fileInfo().absolutePath();
         } else {
-            errorMsg = QStringLiteral("压缩包内未找到 magick.exe");
-            QDir(stagingDir).removeRecursively();
+            errorMsg = QStringLiteral("未找到有效的 magick.exe 核心程序");
             return false;
         }
     }
@@ -403,37 +524,35 @@ bool ImageMagickManager::extractAndSlimReplace(const QString& archivePath, const
         testProc.setWorkingDirectory(extractedRoot);
         testProc.start(QDir(extractedRoot).filePath(QStringLiteral("magick.exe")), {QStringLiteral("-version")});
         if (!testProc.waitForFinished(5000) || testProc.exitCode() != 0) {
-            errorMsg = QStringLiteral("新版本 magick.exe 校验运行失败");
-            QDir(stagingDir).removeRecursively();
+            errorMsg = QStringLiteral("magick.exe 校验运行失败，请确认选择了 Windows x64 版本的 ImageMagick");
             return false;
         }
+        detectedVer = QString::fromUtf8(testProc.readAllStandardOutput());
     }
 
-    // Atomic single-version swap: move existing finalDir -> backupDir, move extractedRoot -> finalDir, delete backupDir & stagingDir
+    // Atomic single-version swap: move existing finalDir -> backupDir, move extractedRoot -> finalDir, delete backupDir
     QDir parentDir(QDir(appDir).filePath(QStringLiteral("engine")));
     if (QDir(finalDir).exists()) {
         if (!parentDir.rename(QStringLiteral("imagemagick"), QStringLiteral("old_im"))) {
-            // If rename fails (e.g. file handle open), remove files directly
             if (!QDir(finalDir).removeRecursively()) {
                 errorMsg = QStringLiteral("无法清理旧版 ImageMagick 目录，请确保没有正在进行的压缩任务");
-                QDir(stagingDir).removeRecursively();
                 return false;
             }
         }
     }
 
-    // Create clean finalDir and move all kept files from extractedRoot into finalDir
     QDir().mkpath(finalDir);
     QDir srcDir(extractedRoot);
     const QFileInfoList entries = srcDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     for (const QFileInfo& fi : entries) {
         const QString destPath = QDir(finalDir).filePath(fi.fileName());
         QFile::remove(destPath);
-        QFile::rename(fi.absoluteFilePath(), destPath);
+        if (!QFile::rename(fi.absoluteFilePath(), destPath)) {
+            QFile::copy(fi.absoluteFilePath(), destPath);
+        }
     }
 
-    // Purge staging and old backup so ONLY ONE VERSION exists on disk
-    QDir(stagingDir).removeRecursively();
+    // Purge old backup so ONLY ONE VERSION exists on disk
     QDir(backupDir).removeRecursively();
     return true;
 }

@@ -140,23 +140,14 @@ ApplicationWindow {
                 anchors.rightMargin: 20
                 spacing: 14
 
-                // Brand Logo
-                Rectangle {
-                    width: 36
-                    height: 36
-                    radius: 8
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#94C1FA" }
-                        GradientStop { position: 1.0; color: "#4E82D4" }
-                    }
-                    Text {
-                        anchors.centerIn: parent
-                        text: "PZ"
-                        font.family: "Segoe UI"
-                        font.pixelSize: 16
-                        font.bold: true
-                        color: "#10141D"
-                    }
+                // Brand Logo (Designed App Icon)
+                Image {
+                    width: 38
+                    height: 38
+                    source: "qrc:/icons/app_icon.png"
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    mipmap: true
                 }
 
                 ColumnLayout {
@@ -779,31 +770,87 @@ ApplicationWindow {
                         width: settingsScroll.availableWidth
                         spacing: 12
 
-                        // ==================== 1. 尺寸调整 (1:1 Restored from User Screenshot + Extensions) ====================
+                        // ==================== 1. 尺寸调整 (Modern Integrated Layout + Quick Resolution Chips) ====================
                         SectionCard {
                             Layout.fillWidth: true
-                            title: "尺寸调整"
+                            title: "尺寸与分辨率控制"
+                            subtitle: "支持按指定宽高边界、百分比或最长边智能缩放"
                             headerRight: [
                                 ModernCheckBox {
-                                    text: "启用"
+                                    text: "启用调整"
                                     checked: compressCtrl.resizeEnabled
                                     onToggled: function(c) { compressCtrl.resizeEnabled = c }
                                 }
                             ]
 
-                            // Exact Width (px) and Height (px) floating label inputs from screenshot
+                            // Quick Resolution Chips (一键常用尺寸)
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: 24
+                                enabled: compressCtrl.resizeEnabled
+                                opacity: compressCtrl.resizeEnabled ? 1.0 : 0.45
+                                spacing: 6
+
+                                Text {
+                                    text: "常用尺寸:"
+                                    font.family: "Microsoft YaHei UI"
+                                    font.pixelSize: 12
+                                    color: "#94A3B8"
+                                }
+
+                                Repeater {
+                                    model: [
+                                        { label: "5K超宽", w: 5120, h: 1080 },
+                                        { label: "4K UHD", w: 3840, h: 2160 },
+                                        { label: "2K QHD", w: 2560, h: 1440 },
+                                        { label: "1080P", w: 1920, h: 1080 },
+                                        { label: "Web端", w: 1280, h: 720 }
+                                    ]
+                                    delegate: Rectangle {
+                                        readonly property bool active: compressCtrl.resizeMode === 0
+                                                                       && compressCtrl.targetWidth === modelData.w
+                                                                       && compressCtrl.targetHeight === modelData.h
+                                        height: 24
+                                        width: chipLbl.implicitWidth + 14
+                                        radius: 5
+                                        color: active ? "#2E456B" : "#22252A"
+                                        border.color: active ? "#94C1FA" : "#3B404B"
+
+                                        Text {
+                                            id: chipLbl
+                                            anchors.centerIn: parent
+                                            text: modelData.label
+                                            font.family: "Microsoft YaHei UI"
+                                            font.pixelSize: 11
+                                            color: active ? "#E6F0FF" : "#A0A7B2"
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                compressCtrl.resizeMode = 0
+                                                compressCtrl.targetWidth = modelData.w
+                                                compressCtrl.targetHeight = modelData.h
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Width & Height / Percentage Inputs
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 14
                                 opacity: compressCtrl.resizeEnabled ? 1.0 : 0.45
 
                                 FloatingInput {
                                     Layout.fillWidth: true
-                                    labelText: compressCtrl.resizeMode === 1 ? "缩放比例 (%)" : "宽度 (px)"
+                                    labelText: compressCtrl.resizeMode === 1
+                                               ? "缩放比例 (%)"
+                                               : (compressCtrl.resizeMode === 2 ? "最长边上限 (px)" : "最大宽度 (px)")
                                     text: compressCtrl.resizeMode === 1
                                           ? compressCtrl.resizePercentage.toString()
                                           : (compressCtrl.targetWidth > 0 ? compressCtrl.targetWidth.toString() : "")
-                                    placeholderText: "不限"
+                                    placeholderText: "不限制"
                                     inputEnabled: compressCtrl.resizeEnabled
                                     validator: IntValidator { bottom: 1; top: 99999 }
                                     onEditingCompleted: function(val) {
@@ -816,12 +863,21 @@ ApplicationWindow {
                                     }
                                 }
 
+                                Text {
+                                    visible: compressCtrl.resizeMode === 0
+                                    text: "×"
+                                    font.family: "Segoe UI"
+                                    font.pixelSize: 18
+                                    color: "#7C8594"
+                                    Layout.topMargin: 8
+                                }
+
                                 FloatingInput {
                                     Layout.fillWidth: true
                                     visible: compressCtrl.resizeMode === 0
-                                    labelText: "高度 (px)"
+                                    labelText: "最大高度 (px)"
                                     text: compressCtrl.targetHeight > 0 ? compressCtrl.targetHeight.toString() : ""
-                                    placeholderText: "不限"
+                                    placeholderText: "不限制"
                                     inputEnabled: compressCtrl.resizeEnabled
                                     validator: IntValidator { bottom: 1; top: 99999 }
                                     onEditingCompleted: function(val) {
@@ -831,17 +887,17 @@ ApplicationWindow {
                                 }
                             }
 
-                            // Screenshot checkbox: 保持宽高比 (仅缩小)
+                            // Keep aspect ratio shrink only checkbox
                             ModernCheckBox {
                                 visible: compressCtrl.resizeMode === 0
                                 enabled: compressCtrl.resizeEnabled
                                 opacity: compressCtrl.resizeEnabled ? 1.0 : 0.45
-                                text: "保持宽高比 (仅缩小)"
+                                text: "保持宽高比 (仅缩小大图，不放大原图)"
                                 checked: compressCtrl.keepAspectRatioShrinkOnly
                                 onToggled: function(c) { compressCtrl.keepAspectRatioShrinkOnly = c }
                             }
 
-                            // Additional resize mode & resampling filter options
+                            // Resize mode & resampling filter options
                             RowLayout {
                                 Layout.fillWidth: true
                                 enabled: compressCtrl.resizeEnabled
@@ -849,7 +905,7 @@ ApplicationWindow {
                                 spacing: 8
 
                                 Text {
-                                    text: "缩放模式:"
+                                    text: "方式:"
                                     font.family: "Microsoft YaHei UI"
                                     font.pixelSize: 12
                                     color: "#94A3B8"
@@ -857,17 +913,17 @@ ApplicationWindow {
                                 ModernComboBox {
                                     Layout.fillWidth: true
                                     currentIndex: compressCtrl.resizeMode
-                                    model: ["指定宽高 (px)", "按百分比缩放 (%)", "限制最长边 (px)"]
+                                    model: ["按宽高边界 (px)", "按百分比缩放 (%)", "限制最长边 (px)"]
                                     onActivated: function(idx) { compressCtrl.resizeMode = idx }
                                 }
                                 Text {
-                                    text: "算法:"
+                                    text: "重采样:"
                                     font.family: "Microsoft YaHei UI"
                                     font.pixelSize: 12
                                     color: "#94A3B8"
                                 }
                                 ModernComboBox {
-                                    Layout.preferredWidth: 118
+                                    Layout.preferredWidth: 116
                                     currentIndex: compressCtrl.filterType
                                     model: ["Lanczos", "Mitchell", "Catrom", "Triangle"]
                                     onActivated: function(idx) { compressCtrl.filterType = idx }
