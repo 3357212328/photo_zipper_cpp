@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QTimer>
 #include <QUrl>
 #include <atomic>
 
@@ -11,12 +12,13 @@ class MemoryMonitor;
 
 class CompressionController : public QObject {
     Q_OBJECT
-    // --- 尺寸调整 (Screenshot match + extended) ---
+    // --- 尺寸调整 ---
     Q_PROPERTY(bool resizeEnabled READ resizeEnabled WRITE setResizeEnabled NOTIFY settingsChanged)
     Q_PROPERTY(int targetWidth READ targetWidth WRITE setTargetWidth NOTIFY settingsChanged)
     Q_PROPERTY(int targetHeight READ targetHeight WRITE setTargetHeight NOTIFY settingsChanged)
     Q_PROPERTY(bool keepAspectRatioShrinkOnly READ keepAspectRatioShrinkOnly WRITE setKeepAspectRatioShrinkOnly NOTIFY settingsChanged)
-    // resizeMode: 0=按指定宽高(受保持宽高比控制), 1=按百分比缩放, 2=限制最长边(px)
+    Q_PROPERTY(int aspectDimension READ aspectDimension WRITE setAspectDimension NOTIFY settingsChanged) // 0=按宽度锁定, 1=按高度锁定
+    // resizeMode: 0=按指定宽高, 1=按百分比缩放
     Q_PROPERTY(int resizeMode READ resizeMode WRITE setResizeMode NOTIFY settingsChanged)
     Q_PROPERTY(int resizePercentage READ resizePercentage WRITE setResizePercentage NOTIFY settingsChanged)
     Q_PROPERTY(int filterType READ filterType WRITE setFilterType NOTIFY settingsChanged) // 0=Lanczos, 1=Mitchell, 2=Catrom, 3=Triangle
@@ -52,6 +54,10 @@ class CompressionController : public QObject {
     Q_PROPERTY(QString fileSuffix READ fileSuffix WRITE setFileSuffix NOTIFY settingsChanged)
     Q_PROPERTY(int maxThreads READ maxThreads WRITE setMaxThreads NOTIFY settingsChanged)
 
+    // --- 界面与状态持久化 ---
+    Q_PROPERTY(int activePresetIndex READ activePresetIndex WRITE setActivePresetIndex NOTIFY settingsChanged)
+    Q_PROPERTY(int activeSettingsTab READ activeSettingsTab WRITE setActiveSettingsTab NOTIFY settingsChanged)
+
     // --- 运行状态 ---
     Q_PROPERTY(bool isRunning READ isRunning NOTIFY runningChanged)
     Q_PROPERTY(double batchProgress READ batchProgress NOTIFY progressChanged)
@@ -62,6 +68,7 @@ public:
                                    ImageMagickManager* engineMgr,
                                    MemoryMonitor* memMonitor,
                                    QObject* parent = nullptr);
+    ~CompressionController() override;
 
     bool resizeEnabled() const { return m_resizeEnabled; }
     void setResizeEnabled(bool v);
@@ -71,6 +78,8 @@ public:
     void setTargetHeight(int v);
     bool keepAspectRatioShrinkOnly() const { return m_keepAspectRatioShrinkOnly; }
     void setKeepAspectRatioShrinkOnly(bool v);
+    int aspectDimension() const { return m_aspectDimension; }
+    void setAspectDimension(int v);
     int resizeMode() const { return m_resizeMode; }
     void setResizeMode(int v);
     int resizePercentage() const { return m_resizePercentage; }
@@ -127,6 +136,10 @@ public:
     void setFileSuffix(const QString& v);
     int maxThreads() const { return m_maxThreads; }
     void setMaxThreads(int v);
+    int activePresetIndex() const { return m_activePresetIndex; }
+    void setActivePresetIndex(int v);
+    int activeSettingsTab() const { return m_activeSettingsTab; }
+    void setActiveSettingsTab(int v);
 
     bool isRunning() const { return m_isRunning; }
     double batchProgress() const { return m_batchProgress; }
@@ -137,7 +150,7 @@ public:
     Q_INVOKABLE void cancelBatchCompression();
     Q_INVOKABLE void compressSingleItem(int row);
     Q_INVOKABLE void openFileInExplorer(const QString& filePath);
-    Q_INVOKABLE void generateSampleImages();
+    Q_INVOKABLE void saveSettings() const;
 
 signals:
     void settingsChanged();
@@ -147,18 +160,21 @@ signals:
     void itemFinished(int row);
 
 private:
+    void loadSettings();
     QStringList buildMagickArguments(const QString& inputPath, const QString& outputPath, const QString& targetExt, int overrideQuality = -1) const;
     QString resolveOutputPath(const QString& inputPath, QString& outExt) const;
 
     ImageTaskModel* m_model = nullptr;
     ImageMagickManager* m_engineMgr = nullptr;
     MemoryMonitor* m_memMonitor = nullptr;
+    QTimer m_saveTimer;
 
-    // Default settings matching screenshot & best practices
+    // Default settings
     bool m_resizeEnabled = true;
     int m_targetWidth = 5120;
     int m_targetHeight = 1080;
     bool m_keepAspectRatioShrinkOnly = true;
+    int m_aspectDimension = 0; // 0=按宽度, 1=按高度
     int m_resizeMode = 0;
     int m_resizePercentage = 75;
     int m_filterType = 0; // Lanczos
@@ -189,6 +205,8 @@ private:
     QString m_filePrefix;
     QString m_fileSuffix = QStringLiteral("_min");
     int m_maxThreads = 4;
+    int m_activePresetIndex = 0;
+    int m_activeSettingsTab = 0;
 
     bool m_isRunning = false;
     double m_batchProgress = 0.0;

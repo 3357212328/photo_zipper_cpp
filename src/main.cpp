@@ -8,6 +8,11 @@
 #include <QImageReader>
 #include <QIcon>
 #include <QFileInfo>
+#include <QDir>
+#include <QImage>
+#include <QPainter>
+#include <QStandardPaths>
+#include <QSettings>
 
 #include "ImageTaskModel.h"
 #include "ImageMagickManager.h"
@@ -65,20 +70,65 @@ int main(int argc, char *argv[])
 
     if (const auto rootObjs = engine.rootObjects(); !rootObjs.isEmpty()) {
         if (auto* win = qobject_cast<QQuickWindow*>(rootObjs.first())) {
+            QSettings uiSettings(QStringLiteral("PhotoZipper"), QStringLiteral("PhotoZipperCpp"));
+            const int savedW = uiSettings.value(QStringLiteral("ui/windowWidth"), 1280).toInt();
+            const int savedH = uiSettings.value(QStringLiteral("ui/windowHeight"), 820).toInt();
+            if (savedW >= 1080 && savedH >= 680) {
+                win->resize(savedW, savedH);
+            }
+
             themeMgr.applyWindowTheme(win);
             QObject::connect(&themeMgr, &ThemeManager::themeChanged, win, [&themeMgr, win]() {
                 themeMgr.applyWindowTheme(win);
+            });
+            QObject::connect(&app, &QCoreApplication::aboutToQuit, &app, [&compressCtrl, win]() {
+                compressCtrl.saveSettings();
+                QSettings s(QStringLiteral("PhotoZipper"), QStringLiteral("PhotoZipperCpp"));
+                s.setValue(QStringLiteral("ui/windowWidth"), win->width());
+                s.setValue(QStringLiteral("ui/windowHeight"), win->height());
+                s.sync();
             });
         }
     }
     QTimer::singleShot(1500, &memMonitor, &MemoryMonitor::trimWorkingSet);
 
+    auto createSyntheticTestImages = []() -> QStringList {
+        const QString tempDir = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
+                                    .filePath(QStringLiteral("photozipper_selftest"));
+        QDir(tempDir).removeRecursively();
+        QDir().mkpath(tempDir);
+
+        auto makeImg = [&](const QString& name, int w, int h, QColor c1, QColor c2, const QString& label) -> QString {
+            QImage img(w, h, QImage::Format_RGB32);
+            QPainter p(&img);
+            QLinearGradient g(0, 0, w, h);
+            g.setColorAt(0.0, c1);
+            g.setColorAt(1.0, c2);
+            p.fillRect(img.rect(), g);
+            p.setPen(QPen(QColor(255, 255, 255, 60), 3));
+            for (int x = 0; x < w; x += 200) p.drawLine(x, 0, x, h);
+            for (int y = 0; y < h; y += 200) p.drawLine(0, y, w, y);
+            p.setPen(Qt::white);
+            p.setFont(QFont(QStringLiteral("Segoe UI"), 48, QFont::Bold));
+            p.drawText(img.rect(), Qt::AlignCenter, label);
+            p.end();
+            const QString outPath = QDir(tempDir).filePath(name);
+            img.save(outPath, name.endsWith(QStringLiteral(".png")) ? "PNG" : "JPG", 96);
+            return outPath;
+        };
+
+        return {
+            makeImg(QStringLiteral("RatioTest_3000x1688.jpg"), 3000, 1688, QColor(20, 42, 85), QColor(230, 110, 45), QStringLiteral("3000x1688 Ratio Test")),
+            makeImg(QStringLiteral("Portrait_1800x3200.png"), 1800, 3200, QColor(24, 140, 130), QColor(240, 175, 45), QStringLiteral("1800x3200 Portrait"))
+        };
+    };
+
     // Support "--capture-ui=<path>" and "--capture-active-ui=<path>" to render and grab the actual QQuickWindow screenshot for visual verification
     for (const QString& arg : app.arguments()) {
         if (arg.startsWith(QStringLiteral("--capture-active-ui="))) {
             const QString outPng = arg.mid(QStringLiteral("--capture-active-ui=").length());
-            QTimer::singleShot(400, &app, [&]() {
-                compressCtrl.generateSampleImages();
+            QTimer::singleShot(400, &app, [&, createSyntheticTestImages]() {
+                taskModel.addFilePaths(createSyntheticTestImages());
                 QTimer::singleShot(300, &app, [&]() {
                     compressCtrl.startBatchCompression();
                 });
@@ -110,7 +160,7 @@ int main(int argc, char *argv[])
             const bool warm = app.arguments().contains(QStringLiteral("--warm"));
             const bool showEngine = app.arguments().contains(QStringLiteral("--dialog"));
             QTimer::singleShot(400, &app, [&, warm, showEngine]() {
-                themeMgr.setIsWarmDay(warm);
+                themeMgr.setIsWarmDay(warm, false);
                 const auto rootObjs = engine.rootObjects();
                 if (!rootObjs.isEmpty()) {
                     if (showEngine) {
@@ -168,20 +218,42 @@ int main(int argc, char *argv[])
         });
         QTimer::singleShot(300, &engineMgr, [&]() { engineMgr.fetchReleases(5); });
     } else if (app.arguments().contains(QStringLiteral("--self-test"))) {
-        QTimer::singleShot(800, &app, [&]() {
-            compressCtrl.generateSampleImages();
-            QTimer::singleShot(600, &app, [&]() {
+        // Test height-lock aspect ratio: 3000x1688 with x512> => 910x512
+        const bool prevResize = compressCtrl.resizeEnabled();
+        const int prevMode = compressCtrl.resizeMode();
+        const bool prevAspect = compressCtrl.keepAspectRatioShrinkOnly();
+        const int prevDim = compressCtrl.aspectDimension();
+        const int prevH = compressCtrl.targetHeight();
+
+        compressCtrl.setResizeEnabled(true);
+        compressCtrl.setResizeMode(0);
+        compressCtrl.setKeepAspectRatioShrinkOnly(true);
+        compressCtrl.setAspectDimension(1); // Lock by height
+        compressCtrl.setTargetHeight(512);
+
+        QTimer::singleShot(400, &app, [&, createSyntheticTestImages]() {
+            taskModel.addFilePaths(createSyntheticTestImages());
+            QTimer::singleShot(300, &app, [&]() {
                 compressCtrl.startBatchCompression();
             });
         });
-        QObject::connect(&compressCtrl, &CompressionController::runningChanged, &app, [&]() {
+        QObject::connect(&compressCtrl, &CompressionController::runningChanged, &app, [&, prevResize, prevMode, prevAspect, prevDim, prevH]() {
             if (!compressCtrl.isRunning() && taskModel.completedCount() > 0) {
+                const QVariantMap item0 = taskModel.getItem(0);
                 qInfo() << "SELF_TEST_SUCCESS: completed=" << taskModel.completedCount()
+                        << "item0_outDims=" << item0.value(QStringLiteral("outputDimensionsText")).toString()
                         << "orig=" << taskModel.totalOriginalSizeText()
                         << "comp=" << taskModel.totalCompressedSizeText()
                         << "saved=" << taskModel.totalSavedText()
                         << "ram=" << memMonitor.appMemoryText();
-                QTimer::singleShot(1200, &app, &QCoreApplication::quit);
+                // Restore original settings before quitting
+                compressCtrl.setResizeEnabled(prevResize);
+                compressCtrl.setResizeMode(prevMode);
+                compressCtrl.setKeepAspectRatioShrinkOnly(prevAspect);
+                compressCtrl.setAspectDimension(prevDim);
+                compressCtrl.setTargetHeight(prevH);
+                compressCtrl.saveSettings();
+                QTimer::singleShot(600, &app, &QCoreApplication::quit);
             }
         });
     }

@@ -18,8 +18,8 @@ ApplicationWindow {
     Behavior on color { ColorAnimation { duration: 180 } }
 
     property int selectedTaskIndex: -1
-    property int activeSettingsTab: 0   // 0=核心压缩, 1=增强水印, 2=导出设置
-    property int activePresetIndex: 0
+    property int activeSettingsTab: compressCtrl.activeSettingsTab
+    property int activePresetIndex: compressCtrl.activePresetIndex
     property bool showComparePanel: false
     property string toastText: ""
     property bool toastError: false
@@ -28,7 +28,7 @@ ApplicationWindow {
         engineDialog.open()
     }
     function setWarmDayTheme(val) {
-        Theme.isWarmDay = val
+        Theme.setIsWarmDay(val, false)
     }
 
     function refreshSelectedPreview() {
@@ -234,13 +234,13 @@ ApplicationWindow {
                     }
                 }
 
-                // Ghost Button: Add Folder
+                // Secondary Button: Add Folder (High-Contrast)
                 Rectangle {
                     Layout.preferredHeight: 32
-                    Layout.preferredWidth: addDirRow.implicitWidth + 18
+                    Layout.preferredWidth: addDirRow.implicitWidth + 20
                     radius: 8
-                    color: addDirMa.containsMouse ? Theme.btnSecHoverBg : "transparent"
-                    border.color: addDirMa.containsMouse ? Theme.btnSecBorder : "transparent"
+                    color: addDirMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg
+                    border.color: addDirMa.containsMouse ? Theme.cardHoverBorder : Theme.btnSecBorder
                     scale: addDirMa.pressed ? 0.96 : 1.0
                     Behavior on color { ColorAnimation { duration: 130 } }
                     Behavior on scale { NumberAnimation { duration: 100 } }
@@ -249,12 +249,13 @@ ApplicationWindow {
                         id: addDirRow
                         anchors.centerIn: parent
                         spacing: 6
-                        VectorIcon { name: "folder"; size: 14; color: Theme.textSecondary }
+                        VectorIcon { name: "folder"; size: 14; color: Theme.textPrimary }
                         Text {
                             text: "添加文件夹"
                             font.family: "Microsoft YaHei UI"
                             font.pixelSize: 12
-                            color: addDirMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+                            font.bold: true
+                            color: Theme.textPrimary
                         }
                     }
                     MouseArea {
@@ -266,47 +267,15 @@ ApplicationWindow {
                     }
                 }
 
-                // Ghost Button: Sample Images
+                // Toggle Full-Canvas Compare View Pill (High-Contrast)
                 Rectangle {
                     Layout.preferredHeight: 32
-                    Layout.preferredWidth: sampleRow.implicitWidth + 18
-                    radius: 8
-                    color: sampleMa.containsMouse ? Theme.btnSecHoverBg : "transparent"
-                    border.color: sampleMa.containsMouse ? Theme.btnSecBorder : "transparent"
-                    scale: sampleMa.pressed ? 0.96 : 1.0
-                    Behavior on color { ColorAnimation { duration: 130 } }
-                    Behavior on scale { NumberAnimation { duration: 100 } }
-
-                    RowLayout {
-                        id: sampleRow
-                        anchors.centerIn: parent
-                        spacing: 6
-                        VectorIcon { name: "sparkles"; size: 14; color: Theme.accent }
-                        Text {
-                            text: "测试样张"
-                            font.family: "Microsoft YaHei UI"
-                            font.pixelSize: 12
-                            color: sampleMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
-                        }
-                    }
-                    MouseArea {
-                        id: sampleMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: compressCtrl.generateSampleImages()
-                    }
-                }
-
-                // Toggle Compare View Pill
-                Rectangle {
-                    Layout.preferredHeight: 32
-                    Layout.preferredWidth: cmpRow.implicitWidth + 18
+                    Layout.preferredWidth: cmpRow.implicitWidth + 20
                     radius: 8
                     color: window.showComparePanel
                            ? Theme.accentSoftBg
-                           : (cmpToggleMa.containsMouse ? Theme.btnSecHoverBg : "transparent")
-                    border.color: window.showComparePanel ? Theme.accentSoftBorder : (cmpToggleMa.containsMouse ? Theme.btnSecBorder : "transparent")
+                           : (cmpToggleMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg)
+                    border.color: window.showComparePanel ? Theme.accentSoftBorder : (cmpToggleMa.containsMouse ? Theme.cardHoverBorder : Theme.btnSecBorder)
                     scale: cmpToggleMa.pressed ? 0.96 : 1.0
                     Behavior on color { ColorAnimation { duration: 130 } }
                     Behavior on scale { NumberAnimation { duration: 100 } }
@@ -315,13 +284,13 @@ ApplicationWindow {
                         id: cmpRow
                         anchors.centerIn: parent
                         spacing: 6
-                        VectorIcon { name: "eye"; size: 14; color: window.showComparePanel ? Theme.accentSoftText : Theme.textSecondary }
+                        VectorIcon { name: "eye"; size: 14; color: window.showComparePanel ? Theme.accentSoftText : Theme.textPrimary }
                         Text {
-                            text: window.showComparePanel ? "收起对比" : "画质对比"
+                            text: window.showComparePanel ? "返回队列" : "画质对比"
                             font.family: "Microsoft YaHei UI"
                             font.pixelSize: 12
-                            font.bold: window.showComparePanel
-                            color: window.showComparePanel ? Theme.accentSoftText : (cmpToggleMa.containsMouse ? Theme.textPrimary : Theme.textSecondary)
+                            font.bold: true
+                            color: window.showComparePanel ? Theme.accentSoftText : Theme.textPrimary
                         }
                     }
                     MouseArea {
@@ -329,7 +298,13 @@ ApplicationWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: window.showComparePanel = !window.showComparePanel
+                        onClicked: {
+                            if (!window.showComparePanel && window.selectedTaskIndex < 0 && taskModel.totalCount > 0) {
+                                window.selectedTaskIndex = 0
+                            }
+                            window.showComparePanel = !window.showComparePanel
+                            window.refreshSelectedPreview()
+                        }
                     }
                 }
 
@@ -472,11 +447,15 @@ ApplicationWindow {
             Layout.fillHeight: true
             spacing: 0
 
-            // ---------- LEFT MAIN CANVAS (Queue + Collapsible Split Compare) ----------
-            ColumnLayout {
+            // ---------- LEFT MAIN CANVAS (Queue View <-> Full-Canvas Compare View) ----------
+            Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 0
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    visible: !window.showComparePanel
 
                 // Active Queue Summary Bar (only shown when queue has items)
                 Rectangle {
@@ -734,18 +713,18 @@ ApplicationWindow {
                                     Layout.preferredWidth: 136
                                     Layout.preferredHeight: 36
                                     radius: 8
-                                    color: emptySampleMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg
-                                    border.color: emptySampleMa.containsMouse ? Theme.accent : Theme.btnSecBorder
-                                    scale: emptySampleMa.pressed ? 0.96 : 1.0
+                                    color: emptyFolderMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg
+                                    border.color: emptyFolderMa.containsMouse ? Theme.accent : Theme.btnSecBorder
+                                    scale: emptyFolderMa.pressed ? 0.96 : 1.0
                                     Behavior on color { ColorAnimation { duration: 130 } }
                                     Behavior on scale { NumberAnimation { duration: 100 } }
 
                                     RowLayout {
                                         anchors.centerIn: parent
                                         spacing: 6
-                                        VectorIcon { name: "sparkles"; size: 13; color: Theme.accent }
+                                        VectorIcon { name: "folder"; size: 13; color: Theme.textPrimary }
                                         Text {
-                                            text: "生成测试样张"
+                                            text: "添加文件夹"
                                             font.family: "Microsoft YaHei UI"
                                             font.pixelSize: 12
                                             font.bold: true
@@ -753,11 +732,11 @@ ApplicationWindow {
                                         }
                                     }
                                     MouseArea {
-                                        id: emptySampleMa
+                                        id: emptyFolderMa
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: compressCtrl.generateSampleImages()
+                                        onClicked: addFolderDialog.open()
                                     }
                                 }
                             }
@@ -805,8 +784,12 @@ ApplicationWindow {
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     window.selectedTaskIndex = index
-                                    window.showComparePanel = true
                                     window.refreshSelectedPreview()
+                                }
+                                onDoubleClicked: {
+                                    window.selectedTaskIndex = index
+                                    window.refreshSelectedPreview()
+                                    window.showComparePanel = true
                                 }
                             }
 
@@ -924,6 +907,31 @@ ApplicationWindow {
                                     }
                                 }
 
+                                // Compare this item button
+                                Rectangle {
+                                    Layout.preferredWidth: 28
+                                    Layout.preferredHeight: 28
+                                    radius: 6
+                                    color: cmpItemMa.containsMouse ? Theme.accentSoftBg : "transparent"
+                                    VectorIcon {
+                                        anchors.centerIn: parent
+                                        name: "eye"
+                                        size: 14
+                                        color: cmpItemMa.containsMouse ? Theme.accentSoftText : Theme.textSecondary
+                                    }
+                                    MouseArea {
+                                        id: cmpItemMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            window.selectedTaskIndex = index
+                                            window.refreshSelectedPreview()
+                                            window.showComparePanel = true
+                                        }
+                                    }
+                                }
+
                                 // Open output folder button
                                 Rectangle {
                                     visible: model.outputPath.length > 0
@@ -977,20 +985,31 @@ ApplicationWindow {
                     }
                 }
 
-                // Smoothly Animated Collapsible Before/After Split View
+                } // End Queue ColumnLayout
+
+                // Full-Canvas Before/After Compare Studio
                 CompareView {
                     id: compareView
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: window.showComparePanel ? 256 : 0
-                    Layout.maximumHeight: window.showComparePanel ? 256 : 0
+                    anchors.fill: parent
+                    visible: opacity > 0.01
                     opacity: window.showComparePanel ? 1.0 : 0.0
-                    visible: Layout.preferredHeight > 2
+                    currentIndex: window.selectedTaskIndex
+                    totalCount: taskModel.totalCount
 
-                    Behavior on Layout.preferredHeight {
-                        NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+                    Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+
+                    onBackRequested: window.showComparePanel = false
+                    onPrevRequested: {
+                        if (taskModel.totalCount > 1) {
+                            window.selectedTaskIndex = (window.selectedTaskIndex - 1 + taskModel.totalCount) % taskModel.totalCount
+                            window.refreshSelectedPreview()
+                        }
                     }
-                    Behavior on opacity {
-                        NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+                    onNextRequested: {
+                        if (taskModel.totalCount > 1) {
+                            window.selectedTaskIndex = (window.selectedTaskIndex + 1) % taskModel.totalCount
+                            window.refreshSelectedPreview()
+                        }
                     }
                 }
             }
@@ -1080,7 +1099,7 @@ ApplicationWindow {
                                         MouseArea {
                                             anchors.fill: parent
                                             cursorShape: Qt.PointingHandCursor
-                                            onClicked: window.activeSettingsTab = index
+                                            onClicked: compressCtrl.activeSettingsTab = index
                                         }
                                     }
                                 }
@@ -1159,7 +1178,6 @@ ApplicationWindow {
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: {
-                                                    window.activePresetIndex = index
                                                     compressCtrl.applyPreset(index)
                                                 }
                                             }
@@ -1193,70 +1211,26 @@ ApplicationWindow {
                                     }
                                 }
 
-                                // Quick Resolution Chips
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    enabled: compressCtrl.resizeEnabled
-                                    opacity: compressCtrl.resizeEnabled ? 1.0 : 0.4
-                                    spacing: 5
-
-                                    Repeater {
-                                        model: [
-                                            { label: "5K超宽", w: 5120, h: 1080 },
-                                            { label: "4K", w: 3840, h: 2160 },
-                                            { label: "2K", w: 2560, h: 1440 },
-                                            { label: "1080P", w: 1920, h: 1080 },
-                                            { label: "720P", w: 1280, h: 720 }
-                                        ]
-                                        delegate: Rectangle {
-                                            readonly property bool active: compressCtrl.resizeMode === 0
-                                                                           && compressCtrl.targetWidth === modelData.w
-                                                                           && compressCtrl.targetHeight === modelData.h
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 25
-                                            radius: 6
-                                            color: active ? Theme.accentSoftBg : (chipMa.containsMouse ? Theme.btnSecHoverBg : Theme.inputBg)
-                                            border.color: active ? Theme.accentSoftBorder : Theme.inputBorder
-                                            Behavior on color { ColorAnimation { duration: 120 } }
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: modelData.label
-                                                font.family: "Microsoft YaHei UI"
-                                                font.pixelSize: 11
-                                                font.bold: active
-                                                color: active ? Theme.accentSoftText : Theme.textSecondary
-                                            }
-                                            MouseArea {
-                                                id: chipMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    compressCtrl.resizeMode = 0
-                                                    compressCtrl.targetWidth = modelData.w
-                                                    compressCtrl.targetHeight = modelData.h
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Side-by-side CompactInput (W / H)
+                                // Side-by-side CompactInput (W / H) with Single-Axis Aspect Lock
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 8
                                     opacity: compressCtrl.resizeEnabled ? 1.0 : 0.4
 
                                     CompactInput {
+                                        readonly property bool wEnabled: compressCtrl.resizeEnabled
+                                                                       && (compressCtrl.resizeMode === 1 || !compressCtrl.keepAspectRatioShrinkOnly || compressCtrl.aspectDimension === 0)
                                         Layout.fillWidth: true
-                                        prefixText: compressCtrl.resizeMode === 1 ? "比例" : (compressCtrl.resizeMode === 2 ? "最长边" : "W")
+                                        prefixText: compressCtrl.resizeMode === 1 ? "比例" : "W"
                                         suffixText: compressCtrl.resizeMode === 1 ? "%" : "px"
                                         text: compressCtrl.resizeMode === 1
                                               ? compressCtrl.resizePercentage.toString()
-                                              : (compressCtrl.targetWidth > 0 ? compressCtrl.targetWidth.toString() : "")
-                                        placeholderText: "不限"
-                                        inputEnabled: compressCtrl.resizeEnabled
+                                              : ((!wEnabled && compressCtrl.keepAspectRatioShrinkOnly)
+                                                 ? ""
+                                                 : (compressCtrl.targetWidth > 0 ? compressCtrl.targetWidth.toString() : ""))
+                                        placeholderText: (!wEnabled && compressCtrl.keepAspectRatioShrinkOnly) ? "按比例自动" : "不限"
+                                        inputEnabled: wEnabled
+                                        opacity: wEnabled ? 1.0 : 0.45
                                         validator: IntValidator { bottom: 1; top: 99999 }
                                         onEditingCompleted: function(val) {
                                             var num = parseInt(val)
@@ -1269,13 +1243,18 @@ ApplicationWindow {
                                     }
 
                                     CompactInput {
+                                        readonly property bool hEnabled: compressCtrl.resizeEnabled
+                                                                       && (!compressCtrl.keepAspectRatioShrinkOnly || compressCtrl.aspectDimension === 1)
                                         Layout.fillWidth: true
                                         visible: compressCtrl.resizeMode === 0
                                         prefixText: "H"
                                         suffixText: "px"
-                                        text: compressCtrl.targetHeight > 0 ? compressCtrl.targetHeight.toString() : ""
-                                        placeholderText: "不限"
-                                        inputEnabled: compressCtrl.resizeEnabled
+                                        text: (!hEnabled && compressCtrl.keepAspectRatioShrinkOnly)
+                                              ? ""
+                                              : (compressCtrl.targetHeight > 0 ? compressCtrl.targetHeight.toString() : "")
+                                        placeholderText: (!hEnabled && compressCtrl.keepAspectRatioShrinkOnly) ? "按比例自动" : "不限"
+                                        inputEnabled: hEnabled
+                                        opacity: hEnabled ? 1.0 : 0.45
                                         validator: IntValidator { bottom: 1; top: 99999 }
                                         onEditingCompleted: function(val) {
                                             var num = parseInt(val)
@@ -1284,14 +1263,61 @@ ApplicationWindow {
                                     }
                                 }
 
-                                // Keep aspect ratio + mode segmented pills + filter
-                                ModernCheckBox {
+                                // Keep aspect ratio + single-axis selector (按宽度 / 按高度)
+                                RowLayout {
                                     visible: compressCtrl.resizeMode === 0
+                                    Layout.fillWidth: true
                                     enabled: compressCtrl.resizeEnabled
                                     opacity: compressCtrl.resizeEnabled ? 1.0 : 0.4
-                                    text: "保持宽高比 (仅缩小大图)"
-                                    checked: compressCtrl.keepAspectRatioShrinkOnly
-                                    onToggled: function(c) { compressCtrl.keepAspectRatioShrinkOnly = c }
+                                    spacing: 8
+
+                                    ModernCheckBox {
+                                        text: "保持宽高比 (仅缩小)"
+                                        checked: compressCtrl.keepAspectRatioShrinkOnly
+                                        onToggled: function(c) { compressCtrl.keepAspectRatioShrinkOnly = c }
+                                    }
+
+                                    Item { Layout.fillWidth: true }
+
+                                    // Lock Axis Segmented Pill (按宽度 | 按高度)
+                                    Rectangle {
+                                        visible: compressCtrl.keepAspectRatioShrinkOnly
+                                        Layout.preferredWidth: 112
+                                        Layout.preferredHeight: 26
+                                        radius: 7
+                                        color: Theme.inputBg
+                                        border.color: Theme.cardBorder
+
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 2
+                                            spacing: 2
+                                            Repeater {
+                                                model: ["按宽度", "按高度"]
+                                                delegate: Rectangle {
+                                                    readonly property bool act: compressCtrl.aspectDimension === index
+                                                    Layout.fillWidth: true
+                                                    Layout.fillHeight: true
+                                                    radius: 5
+                                                    color: act ? Theme.accentSoftBg : "transparent"
+                                                    border.color: act ? Theme.accentSoftBorder : "transparent"
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: modelData
+                                                        font.family: "Microsoft YaHei UI"
+                                                        font.pixelSize: 10
+                                                        font.bold: act
+                                                        color: act ? Theme.accentSoftText : Theme.textSecondary
+                                                    }
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: compressCtrl.aspectDimension = index
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
 
                                 RowLayout {
@@ -1300,7 +1326,7 @@ ApplicationWindow {
                                     opacity: compressCtrl.resizeEnabled ? 1.0 : 0.4
                                     spacing: 6
 
-                                    // 3-pill Resize Mode
+                                    // 2-pill Resize Mode (宽高 | 比例)
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 32
@@ -1313,7 +1339,7 @@ ApplicationWindow {
                                             anchors.margins: 3
                                             spacing: 3
                                             Repeater {
-                                                model: ["宽高", "比例", "最长边"]
+                                                model: ["按宽高", "按比例"]
                                                 delegate: Rectangle {
                                                     readonly property bool act: compressCtrl.resizeMode === index
                                                     Layout.fillWidth: true
@@ -1945,7 +1971,7 @@ ApplicationWindow {
     Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: window.toastText.length > 0 ? 26 : 6
+        anchors.bottomMargin: window.toastText.length > 0 ? (window.showComparePanel ? 68 : 26) : 6
         opacity: window.toastText.length > 0 ? 1.0 : 0.0
         visible: opacity > 0.01
         height: 38

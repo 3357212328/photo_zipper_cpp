@@ -36,9 +36,15 @@ Item {
         case "stop":         return "M6 6 H18 V18 H6 Z"
         case "folder-open":  return "M3 8 C3 6.9 3.9 6 5 6 H9.5 L11.5 8.5 H19 C20.1 8.5 21 9.4 21 10.5 L19.5 18.5 C19.3 19.4 18.5 20 17.6 20 H5 C3.9 20 3 19.1 3 18 Z"
         case "compare":      return "M12 3 V21 M8 8 L4 12 L8 16 M16 8 L20 12 L16 16"
-        case "terminal":     return "M4 17 L10 11 L4 5 M12 19 H20"
-        case "cpu":          return "M7 7 H17 V17 H7 Z M9 3 V7 M15 3 V7 M9 17 V21 M15 17 V21 M3 9 H7 M3 15 H7 M17 9 H21 M17 15 H21"
-        default:             return ""
+        case "terminal":      return "M4 17 L10 11 L4 5 M12 19 H20"
+        case "cpu":           return "M7 7 H17 V17 H7 Z M9 3 V7 M15 3 V7 M9 17 V21 M15 17 V21 M3 9 H7 M3 15 H7 M17 9 H21 M17 15 H21"
+        case "arrow-left":    return "M19 12 H5 M12 19 L5 12 L12 5"
+        case "chevron-left":  return "M15 18 L9 12 L15 6"
+        case "chevron-right": return "M9 18 L15 12 L9 6"
+        case "zoom-in":       return "M11 5 A6 6 0 1 0 11 17 A6 6 0 1 0 11 5 M21 21 L15.5 15.5 M11 8 V14 M8 11 H14"
+        case "zoom-out":      return "M11 5 A6 6 0 1 0 11 17 A6 6 0 1 0 11 5 M21 21 L15.5 15.5 M8 11 H14"
+        case "maximize":      return "M4 9 V4 H9 M15 4 H20 V9 M20 15 V20 H15 M9 20 H4 V15"
+        default:              return ""
         }
     }
 

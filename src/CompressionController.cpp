@@ -9,10 +9,9 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
-#include <QImage>
 #include <QImageReader>
-#include <QPainter>
 #include <QProcess>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QThread>
 #include <QtConcurrent>
@@ -28,12 +27,23 @@ CompressionController::CompressionController(ImageTaskModel* model,
     , m_memMonitor(memMonitor)
 {
     m_maxThreads = qBound(1, QThread::idealThreadCount() / 2, 8);
+    loadSettings();
+
+    m_saveTimer.setSingleShot(true);
+    m_saveTimer.setInterval(400);
+    connect(&m_saveTimer, &QTimer::timeout, this, &CompressionController::saveSettings);
+}
+
+CompressionController::~CompressionController()
+{
+    saveSettings();
 }
 
 #define DEFINE_SETTER(Name, Member, Type) \
 void CompressionController::Name(Type v) { \
     if (Member == v) return; \
     Member = v; \
+    m_saveTimer.start(); \
     emit settingsChanged(); \
 }
 
@@ -41,6 +51,7 @@ DEFINE_SETTER(setResizeEnabled, m_resizeEnabled, bool)
 DEFINE_SETTER(setTargetWidth, m_targetWidth, int)
 DEFINE_SETTER(setTargetHeight, m_targetHeight, int)
 DEFINE_SETTER(setKeepAspectRatioShrinkOnly, m_keepAspectRatioShrinkOnly, bool)
+DEFINE_SETTER(setAspectDimension, m_aspectDimension, int)
 DEFINE_SETTER(setResizeMode, m_resizeMode, int)
 DEFINE_SETTER(setResizePercentage, m_resizePercentage, int)
 DEFINE_SETTER(setFilterType, m_filterType, int)
@@ -67,16 +78,109 @@ DEFINE_SETTER(setCustomOutputDir, m_customOutputDir, const QString&)
 DEFINE_SETTER(setFilePrefix, m_filePrefix, const QString&)
 DEFINE_SETTER(setFileSuffix, m_fileSuffix, const QString&)
 DEFINE_SETTER(setMaxThreads, m_maxThreads, int)
+DEFINE_SETTER(setActivePresetIndex, m_activePresetIndex, int)
+DEFINE_SETTER(setActiveSettingsTab, m_activeSettingsTab, int)
+
+void CompressionController::loadSettings()
+{
+    QSettings s(QStringLiteral("PhotoZipper"), QStringLiteral("PhotoZipperCpp"));
+    s.beginGroup(QStringLiteral("compression"));
+    m_resizeEnabled = s.value(QStringLiteral("resizeEnabled"), m_resizeEnabled).toBool();
+    m_targetWidth = s.value(QStringLiteral("targetWidth"), m_targetWidth).toInt();
+    m_targetHeight = s.value(QStringLiteral("targetHeight"), m_targetHeight).toInt();
+    m_keepAspectRatioShrinkOnly = s.value(QStringLiteral("keepAspectRatioShrinkOnly"), m_keepAspectRatioShrinkOnly).toBool();
+    m_aspectDimension = qBound(0, s.value(QStringLiteral("aspectDimension"), m_aspectDimension).toInt(), 1);
+    m_resizeMode = qBound(0, s.value(QStringLiteral("resizeMode"), m_resizeMode).toInt(), 1);
+    m_resizePercentage = qBound(1, s.value(QStringLiteral("resizePercentage"), m_resizePercentage).toInt(), 200);
+    m_filterType = qBound(0, s.value(QStringLiteral("filterType"), m_filterType).toInt(), 3);
+
+    m_quality = qBound(10, s.value(QStringLiteral("quality"), m_quality).toInt(), 100);
+    m_losslessMode = s.value(QStringLiteral("losslessMode"), m_losslessMode).toBool();
+    m_targetSizeEnabled = s.value(QStringLiteral("targetSizeEnabled"), m_targetSizeEnabled).toBool();
+    m_targetMaxKB = qMax(5, s.value(QStringLiteral("targetMaxKB"), m_targetMaxKB).toInt());
+    m_chromaSubsampling = qBound(0, s.value(QStringLiteral("chromaSubsampling"), m_chromaSubsampling).toInt(), 2);
+    m_progressiveJpeg = s.value(QStringLiteral("progressiveJpeg"), m_progressiveJpeg).toBool();
+    m_skipIfLarger = s.value(QStringLiteral("skipIfLarger"), m_skipIfLarger).toBool();
+
+    m_outputFormat = s.value(QStringLiteral("outputFormat"), m_outputFormat).toString();
+    m_stripMetadata = s.value(QStringLiteral("stripMetadata"), m_stripMetadata).toBool();
+    m_autoOrient = s.value(QStringLiteral("autoOrient"), m_autoOrient).toBool();
+    m_convertToSRGB = s.value(QStringLiteral("convertToSRGB"), m_convertToSRGB).toBool();
+
+    m_sharpenAfterResize = s.value(QStringLiteral("sharpenAfterResize"), m_sharpenAfterResize).toBool();
+    m_colorFilter = qBound(0, s.value(QStringLiteral("colorFilter"), m_colorFilter).toInt(), 3);
+    m_watermarkEnabled = s.value(QStringLiteral("watermarkEnabled"), m_watermarkEnabled).toBool();
+    m_watermarkText = s.value(QStringLiteral("watermarkText"), m_watermarkText).toString();
+    m_watermarkOpacity = qBound(10, s.value(QStringLiteral("watermarkOpacity"), m_watermarkOpacity).toInt(), 100);
+    m_watermarkPosition = qBound(0, s.value(QStringLiteral("watermarkPosition"), m_watermarkPosition).toInt(), 4);
+    m_watermarkFontSize = qBound(10, s.value(QStringLiteral("watermarkFontSize"), m_watermarkFontSize).toInt(), 200);
+
+    m_outputDirMode = qBound(0, s.value(QStringLiteral("outputDirMode"), m_outputDirMode).toInt(), 2);
+    m_customOutputDir = s.value(QStringLiteral("customOutputDir"), m_customOutputDir).toString();
+    m_filePrefix = s.value(QStringLiteral("filePrefix"), m_filePrefix).toString();
+    m_fileSuffix = s.value(QStringLiteral("fileSuffix"), m_fileSuffix).toString();
+    m_maxThreads = qBound(1, s.value(QStringLiteral("maxThreads"), m_maxThreads).toInt(), 8);
+    m_activePresetIndex = qBound(0, s.value(QStringLiteral("activePresetIndex"), m_activePresetIndex).toInt(), 4);
+    m_activeSettingsTab = qBound(0, s.value(QStringLiteral("activeSettingsTab"), m_activeSettingsTab).toInt(), 2);
+    s.endGroup();
+}
+
+void CompressionController::saveSettings() const
+{
+    QSettings s(QStringLiteral("PhotoZipper"), QStringLiteral("PhotoZipperCpp"));
+    s.beginGroup(QStringLiteral("compression"));
+    s.setValue(QStringLiteral("resizeEnabled"), m_resizeEnabled);
+    s.setValue(QStringLiteral("targetWidth"), m_targetWidth);
+    s.setValue(QStringLiteral("targetHeight"), m_targetHeight);
+    s.setValue(QStringLiteral("keepAspectRatioShrinkOnly"), m_keepAspectRatioShrinkOnly);
+    s.setValue(QStringLiteral("aspectDimension"), m_aspectDimension);
+    s.setValue(QStringLiteral("resizeMode"), m_resizeMode);
+    s.setValue(QStringLiteral("resizePercentage"), m_resizePercentage);
+    s.setValue(QStringLiteral("filterType"), m_filterType);
+
+    s.setValue(QStringLiteral("quality"), m_quality);
+    s.setValue(QStringLiteral("losslessMode"), m_losslessMode);
+    s.setValue(QStringLiteral("targetSizeEnabled"), m_targetSizeEnabled);
+    s.setValue(QStringLiteral("targetMaxKB"), m_targetMaxKB);
+    s.setValue(QStringLiteral("chromaSubsampling"), m_chromaSubsampling);
+    s.setValue(QStringLiteral("progressiveJpeg"), m_progressiveJpeg);
+    s.setValue(QStringLiteral("skipIfLarger"), m_skipIfLarger);
+
+    s.setValue(QStringLiteral("outputFormat"), m_outputFormat);
+    s.setValue(QStringLiteral("stripMetadata"), m_stripMetadata);
+    s.setValue(QStringLiteral("autoOrient"), m_autoOrient);
+    s.setValue(QStringLiteral("convertToSRGB"), m_convertToSRGB);
+
+    s.setValue(QStringLiteral("sharpenAfterResize"), m_sharpenAfterResize);
+    s.setValue(QStringLiteral("colorFilter"), m_colorFilter);
+    s.setValue(QStringLiteral("watermarkEnabled"), m_watermarkEnabled);
+    s.setValue(QStringLiteral("watermarkText"), m_watermarkText);
+    s.setValue(QStringLiteral("watermarkOpacity"), m_watermarkOpacity);
+    s.setValue(QStringLiteral("watermarkPosition"), m_watermarkPosition);
+    s.setValue(QStringLiteral("watermarkFontSize"), m_watermarkFontSize);
+
+    s.setValue(QStringLiteral("outputDirMode"), m_outputDirMode);
+    s.setValue(QStringLiteral("customOutputDir"), m_customOutputDir);
+    s.setValue(QStringLiteral("filePrefix"), m_filePrefix);
+    s.setValue(QStringLiteral("fileSuffix"), m_fileSuffix);
+    s.setValue(QStringLiteral("maxThreads"), m_maxThreads);
+    s.setValue(QStringLiteral("activePresetIndex"), m_activePresetIndex);
+    s.setValue(QStringLiteral("activeSettingsTab"), m_activeSettingsTab);
+    s.endGroup();
+    s.sync();
+}
 
 void CompressionController::applyPreset(int presetIndex)
 {
+    m_activePresetIndex = presetIndex;
     switch (presetIndex) {
-    case 0: // 默认均衡瘦身 (截图同款尺寸调整 + 82%高性价比压缩)
+    case 0: // 默认均衡瘦身
         m_resizeEnabled = true;
         m_resizeMode = 0;
         m_targetWidth = 5120;
         m_targetHeight = 1080;
         m_keepAspectRatioShrinkOnly = true;
+        m_aspectDimension = 0;
         m_quality = 82;
         m_losslessMode = false;
         m_targetSizeEnabled = false;
@@ -85,12 +189,13 @@ void CompressionController::applyPreset(int presetIndex)
         m_convertToSRGB = true;
         m_outputFormat = QStringLiteral("original");
         break;
-    case 1: // Web 极速优化 (转 WebP + 78% + 1920x1080 仅缩小)
+    case 1: // Web 极速优化
         m_resizeEnabled = true;
         m_resizeMode = 0;
         m_targetWidth = 1920;
         m_targetHeight = 1080;
         m_keepAspectRatioShrinkOnly = true;
+        m_aspectDimension = 0;
         m_quality = 78;
         m_losslessMode = false;
         m_targetSizeEnabled = false;
@@ -99,7 +204,7 @@ void CompressionController::applyPreset(int presetIndex)
         m_convertToSRGB = true;
         m_outputFormat = QStringLiteral("webp");
         break;
-    case 2: // 摄影高清归档 (保持原尺寸 + 92% 4:4:4 + 保留色彩)
+    case 2: // 摄影高清归档
         m_resizeEnabled = false;
         m_quality = 92;
         m_losslessMode = false;
@@ -109,12 +214,13 @@ void CompressionController::applyPreset(int presetIndex)
         m_autoOrient = true;
         m_outputFormat = QStringLiteral("original");
         break;
-    case 3: // 严格体积限制 (锁定 <= 200KB + JPEG)
+    case 3: // 严格体积限制
         m_resizeEnabled = true;
         m_resizeMode = 0;
         m_targetWidth = 2560;
         m_targetHeight = 1440;
         m_keepAspectRatioShrinkOnly = true;
+        m_aspectDimension = 0;
         m_quality = 80;
         m_losslessMode = false;
         m_targetSizeEnabled = true;
@@ -122,7 +228,7 @@ void CompressionController::applyPreset(int presetIndex)
         m_stripMetadata = true;
         m_outputFormat = QStringLiteral("jpg");
         break;
-    case 4: // 纯无损极限瘦身 (像素零损失 + 剥离冗余元数据)
+    case 4: // 纯无损极限瘦身
         m_resizeEnabled = false;
         m_losslessMode = true;
         m_quality = 100;
@@ -133,6 +239,7 @@ void CompressionController::applyPreset(int presetIndex)
     default:
         break;
     }
+    saveSettings();
     emit settingsChanged();
     emit toastMessage(QStringLiteral("已应用预设配置"), false);
 }
@@ -195,20 +302,25 @@ QStringList CompressionController::buildMagickArguments(const QString& inputPath
 
         QString geometry;
         if (m_resizeMode == 0) {
-            const QString wStr = m_targetWidth > 0 ? QString::number(m_targetWidth) : QString();
-            const QString hStr = m_targetHeight > 0 ? QString::number(m_targetHeight) : QString();
-            if (!wStr.isEmpty() || !hStr.isEmpty()) {
-                geometry = QStringLiteral("%1x%2").arg(wStr, hStr);
-                if (m_keepAspectRatioShrinkOnly) {
-                    geometry += QStringLiteral(">"); // Only shrink larger images, preserve aspect ratio
+            if (m_keepAspectRatioShrinkOnly) {
+                if (m_aspectDimension == 0) {
+                    if (m_targetWidth > 0) geometry = QStringLiteral("%1x>").arg(m_targetWidth);
                 } else {
-                    geometry += QStringLiteral("!"); // Exact dimensions when aspect ratio lock is unchecked
+                    if (m_targetHeight > 0) geometry = QStringLiteral("x%1>").arg(m_targetHeight);
+                }
+            } else {
+                const QString wStr = m_targetWidth > 0 ? QString::number(m_targetWidth) : QString();
+                const QString hStr = m_targetHeight > 0 ? QString::number(m_targetHeight) : QString();
+                if (!wStr.isEmpty() && !hStr.isEmpty()) {
+                    geometry = QStringLiteral("%1x%2!").arg(wStr, hStr);
+                } else if (!wStr.isEmpty()) {
+                    geometry = QStringLiteral("%1x").arg(wStr);
+                } else if (!hStr.isEmpty()) {
+                    geometry = QStringLiteral("x%1").arg(hStr);
                 }
             }
         } else if (m_resizeMode == 1) {
             geometry = QStringLiteral("%1%").arg(qBound(1, m_resizePercentage, 200));
-        } else if (m_resizeMode == 2 && m_targetWidth > 0) {
-            geometry = QStringLiteral("%1x%1>").arg(m_targetWidth);
         }
 
         if (!geometry.isEmpty()) {
@@ -473,67 +585,4 @@ void CompressionController::openFileInExplorer(const QString& filePath)
 #else
     QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absolutePath()));
 #endif
-}
-
-void CompressionController::generateSampleImages()
-{
-    const QString sampleDir = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("samples"));
-    QDir().mkpath(sampleDir);
-
-    struct SampleSpec {
-        QString name;
-        int w;
-        int h;
-        QColor c1;
-        QColor c2;
-        QString title;
-    };
-
-    const QVector<SampleSpec> specs = {
-        {QStringLiteral("Landscape_6K_UltraHD.jpg"), 5760, 3240, QColor(15, 32, 67), QColor(245, 130, 49), QStringLiteral("6K Landscape 5760x3240")},
-        {QStringLiteral("Portrait_Studio_4K.png"), 2160, 3840, QColor(34, 193, 195), QColor(253, 187, 45), QStringLiteral("4K Studio Portrait 2160x3840")},
-        {QStringLiteral("Product_Banner_Wide.jpg"), 5120, 1440, QColor(99, 102, 241), QColor(236, 72, 153), QStringLiteral("Ultrawide Banner 5120x1440")}
-    };
-
-    QStringList createdPaths;
-    for (const auto& sp : specs) {
-        const QString path = QDir(sampleDir).filePath(sp.name);
-        if (!QFileInfo::exists(path)) {
-            QImage img(sp.w, sp.h, QImage::Format_RGB32);
-            QPainter p(&img);
-            p.setRenderHint(QPainter::Antialiasing, true);
-
-            QLinearGradient grad(0, 0, sp.w, sp.h);
-            grad.setColorAt(0.0, sp.c1);
-            grad.setColorAt(1.0, sp.c2);
-            p.fillRect(img.rect(), grad);
-
-            // Draw decorative grid & circles for rich visual detail
-            p.setPen(QPen(QColor(255, 255, 255, 45), 4));
-            for (int x = 0; x < sp.w; x += 240) p.drawLine(x, 0, x, sp.h);
-            for (int y = 0; y < sp.h; y += 240) p.drawLine(0, y, sp.w, y);
-
-            for (int i = 0; i < 12; ++i) {
-                p.setBrush(QColor(255, 255, 255, 22 + (i * 10) % 60));
-                p.drawEllipse(QPoint((sp.w * (i + 1)) / 13, (sp.h * ((i * 3) % 7 + 1)) / 8), 180 + i * 25, 180 + i * 25);
-            }
-
-            QFont font(QStringLiteral("Segoe UI"), 72, QFont::Bold);
-            p.setFont(font);
-            p.setPen(Qt::white);
-            p.drawText(img.rect(), Qt::AlignCenter, sp.title + QStringLiteral("\nPhotoZipper Benchmark Sample"));
-            p.end();
-
-            img.save(path, sp.name.endsWith(QStringLiteral(".png")) ? "PNG" : "JPG", 98);
-        }
-        createdPaths.append(path);
-    }
-
-    if (m_model) {
-        m_model->addFilePaths(createdPaths);
-    }
-    if (m_memMonitor) {
-        m_memMonitor->trimWorkingSet();
-    }
-    emit toastMessage(QStringLiteral("已生成并导入 3 张高分辨率测试样张（含 >5120px 超宽图）"), false);
 }

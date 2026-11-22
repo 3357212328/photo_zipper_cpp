@@ -29,6 +29,12 @@ Rectangle {
         id: hoverHandler
     }
 
+    onInputEnabledChanged: {
+        if (!inputEnabled && textInput.activeFocus) {
+            textInput.focus = false
+        }
+    }
+
     RowLayout {
         anchors.fill: parent
         anchors.leftMargin: 10
@@ -41,7 +47,7 @@ Rectangle {
             font.family: "Microsoft YaHei UI"
             font.pixelSize: 11
             font.bold: true
-            color: textInput.activeFocus ? Theme.accent : Theme.textMuted
+            color: !root.inputEnabled ? Theme.textMuted : (textInput.activeFocus ? Theme.accent : Theme.textSecondary)
             Behavior on color { ColorAnimation { duration: 130 } }
         }
 
@@ -54,6 +60,7 @@ Rectangle {
                 anchors.fill: parent
                 verticalAlignment: TextInput.AlignVCenter
                 enabled: root.inputEnabled
+                readOnly: !root.inputEnabled
                 text: root.text
                 validator: root.validator
                 selectByMouse: true
@@ -65,11 +72,9 @@ Rectangle {
                 selectionColor: Theme.accent
 
                 onTextEdited: {
-                    root.text = textInput.text
                     root.editingCompleted(textInput.text)
                 }
                 onEditingFinished: {
-                    root.text = textInput.text
                     root.editingCompleted(textInput.text)
                 }
             }
