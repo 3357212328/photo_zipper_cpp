@@ -284,6 +284,8 @@ QVariantMap ImageTaskModel::getItem(int row) const
     map.insert(QStringLiteral("fileUrl"), QUrl::fromLocalFile(it.filePath));
     map.insert(QStringLiteral("format"), it.format);
     map.insert(QStringLiteral("originalSize"), it.originalSize);
+    map.insert(QStringLiteral("originalWidth"), it.originalWidth);
+    map.insert(QStringLiteral("originalHeight"), it.originalHeight);
     map.insert(QStringLiteral("originalSizeText"), formatBytes(it.originalSize));
     map.insert(QStringLiteral("compressedSize"), it.compressedSize);
     map.insert(QStringLiteral("compressedSizeText"), it.compressedSize > 0 ? formatBytes(it.compressedSize) : QStringLiteral("-"));
@@ -303,6 +305,10 @@ void ImageTaskModel::updateItemStatus(int row, const QString& status, qint64 com
     if (row < 0 || row >= m_items.size()) return;
     ImageTaskItem& item = m_items[row];
     item.status = status;
+    if (status == QStringLiteral("处理中")) {
+        item.elapsedMs = 0;
+        item.errorMessage.clear();
+    }
     if (compressedSize >= 0) item.compressedSize = compressedSize;
     if (!outputPath.isEmpty()) item.outputPath = outputPath;
     if (outW > 0) item.outputWidth = outW;

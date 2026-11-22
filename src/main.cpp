@@ -36,8 +36,9 @@ int main(int argc, char *argv[])
     fmt.setSwapInterval(1);
     QSurfaceFormat::setDefaultFormat(fmt);
 
-    // Cap QImageReader allocation limit to 512MB for large 8K+ photos while keeping UI thumbnails small
-    QImageReader::setAllocationLimit(512);
+    // Cap Qt UI image decoder allocation limit to 256MB to keep UI RAM low on giant 8K+/16K+ photos
+    // (does not restrict ImageMagick compression workers)
+    QImageReader::setAllocationLimit(256);
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
     QGuiApplication app(argc, argv);

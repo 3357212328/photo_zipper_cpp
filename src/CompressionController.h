@@ -161,7 +161,12 @@ signals:
 
 private:
     void loadSettings();
-    QStringList buildMagickArguments(const QString& inputPath, const QString& outputPath, const QString& targetExt, int overrideQuality = -1) const;
+    QString resolveMagickTempRoot(const QString& outputDir) const;
+    QStringList buildMagickArguments(const QString& inputPath,
+                                     const QString& outputPath,
+                                     const QString& targetExt,
+                                     int overrideQuality = -1,
+                                     const QString& tempDir = QString()) const;
     QString resolveOutputPath(const QString& inputPath, QString& outExt) const;
 
     ImageTaskModel* m_model = nullptr;

@@ -10,10 +10,15 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QStorageInfo>
 #include <QThread>
+#include <QUuid>
 #include <QtConcurrent>
 #include <atomic>
 
@@ -36,6 +41,7 @@ CompressionController::CompressionController(ImageTaskModel* model,
 
 CompressionController::~CompressionController()
 {
+    m_cancelRequested.store(true);
     saveSettings();
 }
 
@@ -270,17 +276,56 @@ QString CompressionController::resolveOutputPath(const QString& inputPath, QStri
     return QDir(targetDir).filePath(baseName + QStringLiteral(".") + outExt);
 }
 
+QString CompressionController::resolveMagickTempRoot(const QString& outputDir) const
+{
+    QStringList candidates;
+    candidates << QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("temp"));
+    if (!outputDir.isEmpty()) {
+        candidates << QDir(outputDir).filePath(QStringLiteral(".pz_temp"));
+    }
+    const QString sysTemp = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    if (!sysTemp.isEmpty()) {
+        candidates << QDir(sysTemp).filePath(QStringLiteral("PhotoZipper_im_temp"));
+    }
+
+    QString bestPath;
+    qint64 bestFreeBytes = -1;
+    for (const QString& candidate : candidates) {
+        if (candidate.isEmpty()) continue;
+        QFileInfo probe(candidate);
+        QString existingAnchor = candidate;
+        while (!QFileInfo::exists(existingAnchor)) {
+            const QString parent = QFileInfo(existingAnchor).absolutePath();
+            if (parent == existingAnchor || parent.isEmpty()) break;
+            existingAnchor = parent;
+        }
+        const QStorageInfo storage(existingAnchor);
+        const qint64 freeBytes = storage.isValid() ? storage.bytesAvailable() : 0;
+        if (freeBytes > bestFreeBytes && QDir().mkpath(candidate)) {
+            bestFreeBytes = freeBytes;
+            bestPath = candidate;
+        }
+    }
+
+    if (!bestPath.isEmpty()) {
+        return bestPath;
+    }
+    return sysTemp;
+}
+
 QStringList CompressionController::buildMagickArguments(const QString& inputPath,
                                                         const QString& outputPath,
                                                         const QString& targetExt,
-                                                        int overrideQuality) const
+                                                        int overrideQuality,
+                                                        const QString& tempDir) const
 {
     QStringList args;
 
-    // 1. Strict memory caps per worker process so large images never spike system RAM
-    args << QStringLiteral("-limit") << QStringLiteral("memory") << QStringLiteral("256MiB")
-         << QStringLiteral("-limit") << QStringLiteral("map") << QStringLiteral("512MiB")
-         << QStringLiteral("-limit") << QStringLiteral("thread") << QStringLiteral("2");
+    // Redirect ImageMagick pixel-cache spill to a clean high-space temp directory without memory/thread limits
+    if (!tempDir.isEmpty()) {
+        args << QStringLiteral("-define")
+             << QStringLiteral("registry:temporary-path=%1").arg(QDir::toNativeSeparators(tempDir));
+    }
 
     args << inputPath;
 
@@ -387,14 +432,7 @@ QStringList CompressionController::buildMagickArguments(const QString& inputPath
         }
         args << QStringLiteral("-quality") << QString::number(m_losslessMode ? 100 : effQuality);
     } else if (ext == QStringLiteral("png")) {
-        // High-compression zlib level 9 + adaptive filtering
-        args << QStringLiteral("-define") << QStringLiteral("png:compression-level=9")
-             << QStringLiteral("-define") << QStringLiteral("png:compression-strategy=1");
-        if (!m_losslessMode && effQuality < 95) {
-            // Quantize colors slightly when user chooses lossy PNG compression
-            const int colors = qBound(32, (effQuality * 256) / 100, 256);
-            args << QStringLiteral("-colors") << QString::number(colors);
-        }
+        args << QStringLiteral("-quality") << QString::number(m_losslessMode ? 100 : effQuality);
     } else if (ext == QStringLiteral("webp")) {
         args << QStringLiteral("-define") << QStringLiteral("webp:method=6")
              << QStringLiteral("-define") << QStringLiteral("webp:thread-level=1");
@@ -419,6 +457,47 @@ QString CompressionController::commandPreview() const
                                             QStringLiteral("output_min.") + dummyExt,
                                             dummyExt);
     return QStringLiteral("magick ") + args.join(QLatin1Char(' '));
+}
+
+static bool runMagickProcess(const QString& magickExe,
+                             const QString& magickDir,
+                             const QStringList& args,
+                             const QString& tempDir,
+                             const std::atomic<bool>& cancelFlag,
+                             QString& stdErrOut,
+                             bool& wasCancelled)
+{
+    wasCancelled = false;
+    QProcess proc;
+    proc.setWorkingDirectory(magickDir);
+    if (!tempDir.isEmpty()) {
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        env.insert(QStringLiteral("MAGICK_TEMPORARY_PATH"), QDir::toNativeSeparators(tempDir));
+        proc.setProcessEnvironment(env);
+    }
+
+    proc.start(magickExe, args);
+    if (!proc.waitForStarted(15000)) {
+        stdErrOut = proc.errorString();
+        return false;
+    }
+
+    QByteArray errBuf;
+    while (proc.state() != QProcess::NotRunning) {
+        proc.waitForFinished(200);
+        errBuf.append(proc.readAllStandardError());
+        (void)proc.readAllStandardOutput();
+        if (cancelFlag.load()) {
+            wasCancelled = true;
+            proc.kill();
+            proc.waitForFinished(3000);
+            return false;
+        }
+    }
+
+    errBuf.append(proc.readAllStandardError());
+    stdErrOut = QString::fromLocal8Bit(errBuf).trimmed();
+    return proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0;
 }
 
 void CompressionController::startBatchCompression()
@@ -446,6 +525,10 @@ void CompressionController::startBatchCompression()
 
     (void)QtConcurrent::run([this, magickExe, magickDir, total, threads]() {
         std::atomic<int> finishedCounter{0};
+        std::atomic<int> successCounter{0};
+        std::atomic<int> failedCounter{0};
+        QMutex heavyTaskMutex;
+
         QThreadPool pool;
         pool.setMaxThreadCount(threads);
 
@@ -453,12 +536,23 @@ void CompressionController::startBatchCompression()
         futures.reserve(total);
 
         for (int row = 0; row < total; ++row) {
-            futures.append(QtConcurrent::run(&pool, [this, row, total, magickExe, magickDir, &finishedCounter]() {
+            futures.append(QtConcurrent::run(&pool, [this, row, total, magickExe, magickDir,
+                                                     &finishedCounter, &successCounter, &failedCounter, &heavyTaskMutex]() {
                 if (m_cancelRequested.load()) return;
 
                 const QVariantMap itemMap = m_model->getItem(row);
                 const QString inputPath = itemMap.value(QStringLiteral("filePath")).toString();
                 const qint64 origSize = itemMap.value(QStringLiteral("originalSize")).toLongLong();
+                const int origW = itemMap.value(QStringLiteral("originalWidth")).toInt();
+                const int origH = itemMap.value(QStringLiteral("originalHeight")).toInt();
+                const bool isHeavyImage = (static_cast<qint64>(origW) * static_cast<qint64>(origH) >= 50000000LL)
+                                          || (origW == 0 && origSize >= 30LL * 1024 * 1024);
+
+                std::unique_ptr<QMutexLocker<QMutex>> heavyLock;
+                if (isHeavyImage) {
+                    heavyLock = std::make_unique<QMutexLocker<QMutex>>(&heavyTaskMutex);
+                    if (m_cancelRequested.load()) return;
+                }
 
                 QMetaObject::invokeMethod(m_model, [this, row]() {
                     m_model->updateItemStatus(row, QStringLiteral("处理中"));
@@ -474,17 +568,28 @@ void CompressionController::startBatchCompression()
                 const QString tempOutputPath = finalOutputPath + QStringLiteral(".tmp_pz.") + outExt;
                 QFile::remove(tempOutputPath);
 
-                const QStringList args = buildMagickArguments(inputPath, tempOutputPath, outExt);
+                const QString tempRoot = resolveMagickTempRoot(QFileInfo(finalOutputPath).absolutePath());
+                const QString taskTempDir = QDir(tempRoot).filePath(
+                    QStringLiteral("t_%1_%2").arg(row).arg(QUuid::createUuid().toString(QUuid::Id128).left(8)));
+                QDir().mkpath(taskTempDir);
 
-                QProcess proc;
-                proc.setWorkingDirectory(magickDir);
-                proc.start(magickExe, args);
-                const bool finished = proc.waitForFinished(120000);
+                const QStringList args = buildMagickArguments(inputPath, tempOutputPath, outExt, -1, taskTempDir);
+
+                QString err;
+                bool wasCancelled = false;
+                const bool ok = runMagickProcess(magickExe, magickDir, args, taskTempDir, m_cancelRequested, err, wasCancelled);
                 const qint64 elapsed = timer.elapsed();
 
-                if (!finished || proc.exitCode() != 0 || !QFileInfo::exists(tempOutputPath)) {
-                    const QString err = QString::fromLocal8Bit(proc.readAllStandardError()).trimmed();
+                if (wasCancelled) {
                     QFile::remove(tempOutputPath);
+                    QDir(taskTempDir).removeRecursively();
+                    QMetaObject::invokeMethod(this, [this, row, elapsed]() {
+                        m_model->updateItemStatus(row, QStringLiteral("已取消"), 0, QString(), 0, 0, elapsed);
+                    }, Qt::QueuedConnection);
+                } else if (!ok || !QFileInfo::exists(tempOutputPath)) {
+                    QFile::remove(tempOutputPath);
+                    QDir(taskTempDir).removeRecursively();
+                    ++failedCounter;
                     QMetaObject::invokeMethod(this, [this, row, elapsed, err]() {
                         m_model->updateItemStatus(row, QStringLiteral("失败"), 0, QString(), 0, 0, elapsed,
                                                   err.isEmpty() ? QStringLiteral("ImageMagick 转换失败") : err);
@@ -495,13 +600,17 @@ void CompressionController::startBatchCompression()
                         const qint64 maxBytes = static_cast<qint64>(m_targetMaxKB) * 1024;
                         int tryQ = 70;
                         while (QFileInfo(tempOutputPath).size() > maxBytes && tryQ >= 20 && !m_cancelRequested.load()) {
-                            QProcess retryProc;
-                            retryProc.setWorkingDirectory(magickDir);
-                            retryProc.start(magickExe, buildMagickArguments(inputPath, tempOutputPath, outExt, tryQ));
-                            retryProc.waitForFinished(60000);
+                            QString retryErr;
+                            bool retryCancelled = false;
+                            runMagickProcess(magickExe, magickDir,
+                                             buildMagickArguments(inputPath, tempOutputPath, outExt, tryQ, taskTempDir),
+                                             taskTempDir, m_cancelRequested, retryErr, retryCancelled);
+                            if (retryCancelled) break;
                             tryQ -= 15;
                         }
                     }
+
+                    QDir(taskTempDir).removeRecursively();
 
                     const QFileInfo outFi(tempOutputPath);
                     qint64 compSize = outFi.size();
@@ -520,7 +629,10 @@ void CompressionController::startBatchCompression()
                         skipped = true;
                     } else {
                         QFile::remove(finalOutputPath);
-                        QFile::rename(tempOutputPath, finalOutputPath);
+                        if (!QFile::rename(tempOutputPath, finalOutputPath)) {
+                            QFile::copy(tempOutputPath, finalOutputPath);
+                            QFile::remove(tempOutputPath);
+                        }
                     }
 
                     QImageReader reader(finalOutputPath);
@@ -528,6 +640,7 @@ void CompressionController::startBatchCompression()
                     const int outW = outSz.isValid() ? outSz.width() : 0;
                     const int outH = outSz.isValid() ? outSz.height() : 0;
                     const QString statusStr = skipped ? QStringLiteral("已跳过") : QStringLiteral("已完成");
+                    ++successCounter;
 
                     QMetaObject::invokeMethod(this, [this, row, statusStr, compSize, finalOutputPath, outW, outH, elapsed]() {
                         m_model->updateItemStatus(row, statusStr, compSize, finalOutputPath, outW, outH, elapsed);
@@ -547,7 +660,9 @@ void CompressionController::startBatchCompression()
             f.waitForFinished();
         }
 
-        QMetaObject::invokeMethod(this, [this]() {
+        const int okCount = successCounter.load();
+        const int failCount = failedCounter.load();
+        QMetaObject::invokeMethod(this, [this, okCount, failCount]() {
             m_isRunning = false;
             emit runningChanged();
             if (m_memMonitor) {
@@ -555,6 +670,9 @@ void CompressionController::startBatchCompression()
             }
             if (m_cancelRequested.load()) {
                 emit toastMessage(QStringLiteral("已中止批量压缩任务"), true);
+            } else if (failCount > 0) {
+                emit toastMessage(QStringLiteral("批量处理结束：%1 张成功，%2 张失败（悬停失败项查看原因）")
+                                      .arg(okCount).arg(failCount), true);
             } else {
                 emit toastMessage(QStringLiteral("全部图片压缩处理完成！共节省 %1").arg(m_model->totalSavedText()), false);
             }

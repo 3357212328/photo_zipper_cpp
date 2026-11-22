@@ -639,7 +639,7 @@ ApplicationWindow {
                                 }
                                 Text {
                                     Layout.alignment: Qt.AlignHCenter
-                                    text: "内置多核进程池并发压缩，自动限流不爆内存"
+                                    text: "内置 ImageMagick 原生引擎高效压缩，轻量级界面低内存运行"
                                     font.family: "Microsoft YaHei UI"
                                     font.pixelSize: 12
                                     color: Theme.textSecondary
@@ -808,15 +808,38 @@ ApplicationWindow {
                                     border.color: Theme.cardBorder
                                     clip: true
 
+                                    Text {
+                                        anchors.centerIn: parent
+                                        visible: thumbImg.status !== Image.Ready
+                                        text: model.format
+                                        font.family: "Segoe UI"
+                                        font.pixelSize: 10
+                                        font.bold: true
+                                        color: Theme.textMuted
+                                    }
+
                                     Image {
+                                        id: thumbImg
                                         anchors.fill: parent
                                         anchors.margins: 1
-                                        source: model.fileUrl
+                                        property bool useOutputFallback: false
+                                        readonly property url outUrl: model.outputUrl
+                                        onOutUrlChanged: {
+                                            if (status === Image.Error && outUrl.toString().length > 0) {
+                                                useOutputFallback = true
+                                            }
+                                        }
+                                        source: (useOutputFallback && outUrl.toString().length > 0) ? outUrl : model.fileUrl
                                         fillMode: Image.PreserveAspectCrop
                                         asynchronous: true
                                         cache: false
                                         sourceSize.width: 96
                                         sourceSize.height: 96
+                                        onStatusChanged: {
+                                            if (status === Image.Error && !useOutputFallback && outUrl.toString().length > 0) {
+                                                useOutputFallback = true
+                                            }
+                                        }
                                     }
                                 }
 
@@ -876,11 +899,21 @@ ApplicationWindow {
                                     }
                                     Text {
                                         Layout.alignment: Qt.AlignRight
-                                        text: model.savedPercentText !== "-" ? ("节省 " + model.savedPercentText) : "等待压缩"
+                                        Layout.maximumWidth: 210
+                                        elide: Text.ElideRight
+                                        text: model.status === "失败"
+                                              ? (model.errorMessage.length > 0 ? model.errorMessage : "压缩失败")
+                                              : (model.status === "处理中"
+                                                 ? "正在压缩..."
+                                                 : (model.status === "已取消"
+                                                    ? "已取消"
+                                                    : (model.savedPercentText !== "-" ? ("节省 " + model.savedPercentText) : "等待压缩")))
                                         font.family: "Microsoft YaHei UI"
                                         font.pixelSize: 11
                                         font.bold: model.savedPositive
-                                        color: model.savedPositive ? Theme.successText : Theme.textMuted
+                                        color: model.status === "失败" ? Theme.dangerText
+                                             : (model.status === "处理中" ? Theme.accentSoftText
+                                             : (model.savedPositive ? Theme.successText : Theme.textMuted))
                                     }
                                 }
 
@@ -893,7 +926,8 @@ ApplicationWindow {
                                          : (model.status === "处理中" ? Theme.accentSoftBg
                                          : (model.status === "失败" ? Theme.dangerBg : Theme.btnSecBg))
                                     border.color: model.status === "已完成" ? Theme.successBorder
-                                                : (model.status === "处理中" ? Theme.accentSoftBorder : Theme.btnSecBorder)
+                                                : (model.status === "处理中" ? Theme.accentSoftBorder
+                                                : (model.status === "失败" ? Theme.dangerBorder : Theme.btnSecBorder))
 
                                     Text {
                                         anchors.centerIn: parent
@@ -905,6 +939,16 @@ ApplicationWindow {
                                              : (model.status === "处理中" ? Theme.accentSoftText
                                              : (model.status === "失败" ? Theme.dangerText : Theme.textSecondary))
                                     }
+
+                                    MouseArea {
+                                        id: statusTipMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        acceptedButtons: Qt.NoButton
+                                    }
+
+                                    ToolTip.visible: statusTipMa.containsMouse && model.errorMessage.length > 0
+                                    ToolTip.text: model.errorMessage
                                 }
 
                                 // Compare this item button
