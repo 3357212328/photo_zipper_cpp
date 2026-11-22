@@ -3,6 +3,24 @@
 #include <QObject>
 #include <QColor>
 #include <QSettings>
+#include <QWindow>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <dwmapi.h>
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#ifndef DWMWA_BORDER_COLOR
+#define DWMWA_BORDER_COLOR 34
+#endif
+#ifndef DWMWA_CAPTION_COLOR
+#define DWMWA_CAPTION_COLOR 35
+#endif
+#ifndef DWMWA_TEXT_COLOR
+#define DWMWA_TEXT_COLOR 36
+#endif
+#endif
 
 class ThemeManager : public QObject {
     Q_OBJECT
@@ -11,6 +29,7 @@ class ThemeManager : public QObject {
     // Window & Header backgrounds
     Q_PROPERTY(QColor windowBg READ windowBg NOTIFY themeChanged)
     Q_PROPERTY(QColor headerBg READ headerBg NOTIFY themeChanged)
+    Q_PROPERTY(QColor sidebarBg READ sidebarBg NOTIFY themeChanged)
     Q_PROPERTY(QColor headerBorder READ headerBorder NOTIFY themeChanged)
 
     // Card & Surface colors
@@ -18,6 +37,7 @@ class ThemeManager : public QObject {
     Q_PROPERTY(QColor cardAltBg READ cardAltBg NOTIFY themeChanged)
     Q_PROPERTY(QColor cardBorder READ cardBorder NOTIFY themeChanged)
     Q_PROPERTY(QColor cardHoverBorder READ cardHoverBorder NOTIFY themeChanged)
+    Q_PROPERTY(QColor surfaceElevated READ surfaceElevated NOTIFY themeChanged)
 
     // Input & Control surfaces
     Q_PROPERTY(QColor inputBg READ inputBg NOTIFY themeChanged)
@@ -32,9 +52,10 @@ class ThemeManager : public QObject {
     Q_PROPERTY(QColor textSecondary READ textSecondary NOTIFY themeChanged)
     Q_PROPERTY(QColor textMuted READ textMuted NOTIFY themeChanged)
 
-    // Primary Accent (Warm Amber/Terracotta in Daylight vs Crisp Blue in Dark)
+    // Primary Accent
     Q_PROPERTY(QColor accent READ accent NOTIFY themeChanged)
     Q_PROPERTY(QColor accentHover READ accentHover NOTIFY themeChanged)
+    Q_PROPERTY(QColor accentEnd READ accentEnd NOTIFY themeChanged)
     Q_PROPERTY(QColor accentSoftBg READ accentSoftBg NOTIFY themeChanged)
     Q_PROPERTY(QColor accentSoftBorder READ accentSoftBorder NOTIFY themeChanged)
     Q_PROPERTY(QColor accentSoftText READ accentSoftText NOTIFY themeChanged)
@@ -44,7 +65,7 @@ class ThemeManager : public QObject {
     Q_PROPERTY(QColor btnSecHoverBg READ btnSecHoverBg NOTIFY themeChanged)
     Q_PROPERTY(QColor btnSecBorder READ btnSecBorder NOTIFY themeChanged)
 
-    // Status Badges (Success / Danger)
+    // Status Badges
     Q_PROPERTY(QColor successBg READ successBg NOTIFY themeChanged)
     Q_PROPERTY(QColor successBorder READ successBorder NOTIFY themeChanged)
     Q_PROPERTY(QColor successText READ successText NOTIFY themeChanged)
@@ -75,47 +96,75 @@ public:
 
     Q_INVOKABLE void toggle() { setIsWarmDay(!m_isWarmDay); }
 
-    QColor windowBg() const        { return m_isWarmDay ? QColor("#F6EFE5") : QColor("#16181D"); }
-    QColor headerBg() const        { return m_isWarmDay ? QColor("#EDE3D3") : QColor("#111318"); }
-    QColor headerBorder() const    { return m_isWarmDay ? QColor("#DCCEB8") : QColor("#222630"); }
+    Q_INVOKABLE void applyWindowTheme(QWindow* window) const {
+#ifdef Q_OS_WIN
+        if (!window) return;
+        HWND hwnd = reinterpret_cast<HWND>(window->winId());
+        if (!hwnd) return;
 
-    QColor cardBg() const          { return m_isWarmDay ? QColor("#FFFDF9") : QColor("#22262F"); }
-    QColor cardAltBg() const       { return m_isWarmDay ? QColor("#F2E9DC") : QColor("#1C2028"); }
-    QColor cardBorder() const      { return m_isWarmDay ? QColor("#DFD3C0") : QColor("#2E3440"); }
-    QColor cardHoverBorder() const { return m_isWarmDay ? QColor("#C6B397") : QColor("#434C5E"); }
+        BOOL useDark = m_isWarmDay ? FALSE : TRUE;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
 
-    QColor inputBg() const         { return m_isWarmDay ? QColor("#FAF5EC") : QColor("#1A1D24"); }
-    QColor inputHoverBg() const    { return m_isWarmDay ? QColor("#F1E8D9") : QColor("#212630"); }
-    QColor inputFocusBg() const    { return m_isWarmDay ? QColor("#FFFFFF") : QColor("#1D2330"); }
-    QColor inputDisabledBg() const { return m_isWarmDay ? QColor("#EDE6DA") : QColor("#16191F"); }
-    QColor inputBorder() const     { return m_isWarmDay ? QColor("#D2C4AE") : QColor("#363C49"); }
-    QColor popupBg() const         { return m_isWarmDay ? QColor("#FFFDF9") : QColor("#1E222A"); }
+        const QColor cap = headerBg();
+        COLORREF captionColor = RGB(cap.red(), cap.green(), cap.blue());
+        DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &captionColor, sizeof(captionColor));
 
-    QColor textPrimary() const     { return m_isWarmDay ? QColor("#2B2118") : QColor("#F1F5F9"); }
-    QColor textSecondary() const   { return m_isWarmDay ? QColor("#695A4C") : QColor("#94A3B8"); }
-    QColor textMuted() const       { return m_isWarmDay ? QColor("#9A8876") : QColor("#64748B"); }
+        const QColor txt = textPrimary();
+        COLORREF textColor = RGB(txt.red(), txt.green(), txt.blue());
+        DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, &textColor, sizeof(textColor));
 
-    QColor accent() const          { return m_isWarmDay ? QColor("#D97706") : QColor("#3B82F6"); }
-    QColor accentHover() const     { return m_isWarmDay ? QColor("#EA580C") : QColor("#60A5FA"); }
-    QColor accentSoftBg() const    { return m_isWarmDay ? QColor("#FEF3C7") : QColor("#1E3A8A"); }
-    QColor accentSoftBorder() const{ return m_isWarmDay ? QColor("#F59E0B") : QColor("#3B82F6"); }
-    QColor accentSoftText() const  { return m_isWarmDay ? QColor("#B45309") : QColor("#93C5FD"); }
+        const QColor brd = headerBorder();
+        COLORREF borderColor = RGB(brd.red(), brd.green(), brd.blue());
+        DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &borderColor, sizeof(borderColor));
+#else
+        Q_UNUSED(window);
+#endif
+    }
 
-    QColor btnSecBg() const        { return m_isWarmDay ? QColor("#ECE2D0") : QColor("#252A34"); }
-    QColor btnSecHoverBg() const   { return m_isWarmDay ? QColor("#E2D5BE") : QColor("#2E3543"); }
-    QColor btnSecBorder() const    { return m_isWarmDay ? QColor("#CFC0A8") : QColor("#373E4C"); }
+    QColor windowBg() const        { return m_isWarmDay ? QColor("#F4EEE4") : QColor("#0E1015"); }
+    QColor headerBg() const        { return m_isWarmDay ? QColor("#F4EEE4") : QColor("#0F1117"); }
+    QColor sidebarBg() const       { return m_isWarmDay ? QColor("#FAF6EF") : QColor("#14171F"); }
+    QColor headerBorder() const    { return m_isWarmDay ? QColor("#E5DCCD") : QColor("#202533"); }
 
-    QColor successBg() const       { return m_isWarmDay ? QColor("#DCFCE7") : QColor("#14532D"); }
-    QColor successBorder() const   { return m_isWarmDay ? QColor("#86EFAC") : QColor("#234733"); }
-    QColor successText() const     { return m_isWarmDay ? QColor("#15803D") : QColor("#86EFAC"); }
+    QColor cardBg() const          { return m_isWarmDay ? QColor("#FFFDF9") : QColor("#191D27"); }
+    QColor cardAltBg() const       { return m_isWarmDay ? QColor("#EFE8DC") : QColor("#12151C"); }
+    QColor cardBorder() const      { return m_isWarmDay ? QColor("#E5DCCD") : QColor("#222736"); }
+    QColor cardHoverBorder() const { return m_isWarmDay ? QColor("#CFC2AE") : QColor("#333B4F"); }
+    QColor surfaceElevated() const { return m_isWarmDay ? QColor("#F2EAE0") : QColor("#202534"); }
 
-    QColor dangerBg() const        { return m_isWarmDay ? QColor("#FEE2E2") : QColor("#4C1D24"); }
-    QColor dangerBorder() const    { return m_isWarmDay ? QColor("#FCA5A5") : QColor("#F43F5E"); }
-    QColor dangerText() const      { return m_isWarmDay ? QColor("#B91C1C") : QColor("#FDA4AF"); }
+    QColor inputBg() const         { return m_isWarmDay ? QColor("#FAF6EF") : QColor("#11141B"); }
+    QColor inputHoverBg() const    { return m_isWarmDay ? QColor("#F2EAE0") : QColor("#181C26"); }
+    QColor inputFocusBg() const    { return m_isWarmDay ? QColor("#FFFFFF") : QColor("#161B26"); }
+    QColor inputDisabledBg() const { return m_isWarmDay ? QColor("#EDE6DA") : QColor("#12141A"); }
+    QColor inputBorder() const     { return m_isWarmDay ? QColor("#DDD2C1") : QColor("#272D3E"); }
+    QColor popupBg() const         { return m_isWarmDay ? QColor("#FFFDF9") : QColor("#1A1E29"); }
 
-    QColor rowBg() const           { return m_isWarmDay ? QColor("#FFFDF9") : QColor("#20242D"); }
-    QColor rowHoverBg() const      { return m_isWarmDay ? QColor("#F8F1E5") : QColor("#252B36"); }
-    QColor rowSelectedBg() const   { return m_isWarmDay ? QColor("#FEF3C7") : QColor("#223046"); }
+    QColor textPrimary() const     { return m_isWarmDay ? QColor("#241C16") : QColor("#F4F6FA"); }
+    QColor textSecondary() const   { return m_isWarmDay ? QColor("#6B5D50") : QColor("#94A0B8"); }
+    QColor textMuted() const       { return m_isWarmDay ? QColor("#9E8F80") : QColor("#5D677D"); }
+
+    QColor accent() const          { return m_isWarmDay ? QColor("#D46A28") : QColor("#6366F1"); }
+    QColor accentHover() const     { return m_isWarmDay ? QColor("#C2591A") : QColor("#818CF8"); }
+    QColor accentEnd() const       { return m_isWarmDay ? QColor("#E38B3A") : QColor("#3B82F6"); }
+    QColor accentSoftBg() const    { return m_isWarmDay ? QColor("#FBEAD8") : QColor("#1E2242"); }
+    QColor accentSoftBorder() const{ return m_isWarmDay ? QColor("#E6A972") : QColor("#4F46E5"); }
+    QColor accentSoftText() const  { return m_isWarmDay ? QColor("#A84A14") : QColor("#A5B4FC"); }
+
+    QColor btnSecBg() const        { return m_isWarmDay ? QColor("#EFE8DC") : QColor("#1C202B"); }
+    QColor btnSecHoverBg() const   { return m_isWarmDay ? QColor("#E6DDD0") : QColor("#252B3A"); }
+    QColor btnSecBorder() const    { return m_isWarmDay ? QColor("#DDD2C1") : QColor("#2C3345"); }
+
+    QColor successBg() const       { return m_isWarmDay ? QColor("#E6F5EC") : QColor("#0F291E"); }
+    QColor successBorder() const   { return m_isWarmDay ? QColor("#9BD4B4") : QColor("#1F5E42"); }
+    QColor successText() const     { return m_isWarmDay ? QColor("#16794B") : QColor("#4ADE80"); }
+
+    QColor dangerBg() const        { return m_isWarmDay ? QColor("#FCEAEA") : QColor("#2F1519"); }
+    QColor dangerBorder() const    { return m_isWarmDay ? QColor("#F2B4B4") : QColor("#7F2330"); }
+    QColor dangerText() const      { return m_isWarmDay ? QColor("#B92B2B") : QColor("#FB7185"); }
+
+    QColor rowBg() const           { return m_isWarmDay ? QColor("#FFFDF9") : QColor("#171B24"); }
+    QColor rowHoverBg() const      { return m_isWarmDay ? QColor("#F7F1E7") : QColor("#1E2330"); }
+    QColor rowSelectedBg() const   { return m_isWarmDay ? QColor("#FBEAD8") : QColor("#1E2540"); }
 
 signals:
     void themeChanged();

@@ -35,10 +35,10 @@ qt_add_qml_module(PhotoZipper
     VERSION 1.0
     QML_FILES
         qml/Main.qml
-        qml/components/FloatingInput.qml
+        qml/components/VectorIcon.qml
+        qml/components/CompactInput.qml
         qml/components/ModernCheckBox.qml
         qml/components/ModernComboBox.qml
-        qml/components/SectionCard.qml
         qml/components/CompareView.qml
         qml/components/EngineUpdateDialog.qml
 )
@@ -53,4 +53,5 @@ target_link_libraries(PhotoZipper PRIVATE
     Qt6::Network
     Qt6::Concurrent
     psapi
+    dwmapi
 )

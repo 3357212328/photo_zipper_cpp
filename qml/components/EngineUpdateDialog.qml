@@ -47,24 +47,24 @@ Popup {
     }
 
     Overlay.modal: Rectangle {
-        color: Theme.isWarmDay ? "#662B231D" : "#B50B0E14"
+        color: Theme.isWarmDay ? "#66241C16" : "#BA090B10"
     }
 
     enter: Transition {
         ParallelAnimation {
-            NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 180; easing.type: Easing.OutCubic }
-            NumberAnimation { property: "scale"; from: 0.94; to: 1.0; duration: 200; easing.type: Easing.OutBack }
+            NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 170; easing.type: Easing.OutCubic }
+            NumberAnimation { property: "scale"; from: 0.95; to: 1.0; duration: 190; easing.type: Easing.OutBack }
         }
     }
     exit: Transition {
         ParallelAnimation {
-            NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 130; easing.type: Easing.InCubic }
-            NumberAnimation { property: "scale"; from: 1.0; to: 0.96; duration: 130; easing.type: Easing.InCubic }
+            NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 120; easing.type: Easing.InCubic }
+            NumberAnimation { property: "scale"; from: 1.0; to: 0.96; duration: 120; easing.type: Easing.InCubic }
         }
     }
 
     background: Rectangle {
-        color: Theme.cardBg
+        color: Theme.sidebarBg
         radius: 14
         border.width: 1
         border.color: Theme.cardHoverBorder
@@ -72,28 +72,43 @@ Popup {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 20
-        spacing: 12
+        anchors.margins: 22
+        spacing: 14
 
         // Title bar
         RowLayout {
             Layout.fillWidth: true
             spacing: 12
 
+            Rectangle {
+                Layout.preferredWidth: 36
+                Layout.preferredHeight: 36
+                radius: 9
+                color: Theme.accentSoftBg
+                border.color: Theme.accentSoftBorder
+
+                VectorIcon {
+                    anchors.centerIn: parent
+                    name: "cpu"
+                    size: 18
+                    color: Theme.accentSoftText
+                }
+            }
+
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 3
+                spacing: 2
                 Text {
-                    text: "内嵌 ImageMagick 引擎版本管理 (在线 & 本地双模式)"
+                    text: "内嵌 ImageMagick 引擎版本管理"
                     font.family: "Microsoft YaHei UI"
-                    font.pixelSize: 17
+                    font.pixelSize: 16
                     font.bold: true
                     color: Theme.textPrimary
                 }
                 Text {
-                    text: "支持从 GitHub 官方源在线更新，或直接导入本地压缩包/文件夹 · 严格单版本原子替换"
+                    text: "支持从 GitHub 官方源在线更新或导入本地压缩包/目录 · 严格单版本原子替换"
                     font.family: "Microsoft YaHei UI"
-                    font.pixelSize: 12
+                    font.pixelSize: 11
                     color: Theme.textSecondary
                 }
             }
@@ -109,11 +124,10 @@ Popup {
                 border.color: closeMa.containsMouse ? Theme.dangerBorder : Theme.btnSecBorder
                 Behavior on color { ColorAnimation { duration: 130 } }
 
-                Text {
+                VectorIcon {
                     anchors.centerIn: parent
-                    text: "✕"
-                    font.pixelSize: 14
-                    font.bold: true
+                    name: "x"
+                    size: 14
                     color: closeMa.containsMouse ? Theme.dangerText : Theme.textSecondary
                 }
                 MouseArea {
@@ -129,9 +143,9 @@ Popup {
         // Current engine status card
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 78
+            Layout.preferredHeight: 74
             radius: 10
-            color: Theme.cardAltBg
+            color: Theme.cardBg
             border.color: Theme.cardBorder
 
             RowLayout {
@@ -145,9 +159,9 @@ Popup {
                     RowLayout {
                         spacing: 8
                         Rectangle {
-                            width: 10
-                            height: 10
-                            radius: 5
+                            width: 8
+                            height: 8
+                            radius: 4
                             color: (engineManager && engineManager.isInstalled) ? "#22C55E" : "#EF4444"
                         }
                         Text {
@@ -187,21 +201,32 @@ Popup {
 
                 // Online Update to latest button
                 Rectangle {
-                    Layout.preferredWidth: 142
+                    Layout.preferredWidth: 144
                     Layout.preferredHeight: 36
                     radius: 8
-                    color: (engineManager && engineManager.isBusy) ? Theme.btnSecBg : (latestMa.containsMouse ? Theme.accentHover : Theme.accent)
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: (engineManager && engineManager.isBusy) ? Theme.btnSecBg : (latestMa.containsMouse ? Theme.accentHover : Theme.accent) }
+                        GradientStop { position: 1.0; color: (engineManager && engineManager.isBusy) ? Theme.btnSecBg : Theme.accentEnd }
+                    }
                     scale: latestMa.pressed ? 0.96 : 1.0
-                    Behavior on color { ColorAnimation { duration: 140 } }
                     Behavior on scale { NumberAnimation { duration: 100 } }
 
-                    Text {
+                    RowLayout {
                         anchors.centerIn: parent
-                        text: (engineManager && !engineManager.isInstalled) ? "☁ 在线安装最新版" : "☁ 在线更新最新版"
-                        font.family: "Microsoft YaHei UI"
-                        font.pixelSize: 12
-                        font.bold: true
-                        color: "#FFFFFF"
+                        spacing: 6
+                        VectorIcon {
+                            name: "cloud"
+                            size: 14
+                            color: "#FFFFFF"
+                        }
+                        Text {
+                            text: (engineManager && !engineManager.isInstalled) ? "在线安装最新版" : "在线更新最新版"
+                            font.family: "Microsoft YaHei UI"
+                            font.pixelSize: 12
+                            font.bold: true
+                            color: "#FFFFFF"
+                        }
                     }
                     MouseArea {
                         id: latestMa
@@ -215,12 +240,12 @@ Popup {
             }
         }
 
-        // Local Offline Update / Import Card (Strictly constrained so right button NEVER overflows!)
+        // Local Offline Update / Import Card
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 58
             radius: 10
-            color: Theme.cardAltBg
+            color: Theme.cardBg
             border.color: Theme.cardBorder
 
             RowLayout {
@@ -235,7 +260,7 @@ Popup {
                     Text {
                         Layout.fillWidth: true
                         elide: Text.ElideRight
-                        text: "📦 本地离线更新 / 切换特定版本"
+                        text: "本地离线更新 / 切换特定版本"
                         font.family: "Microsoft YaHei UI"
                         font.pixelSize: 13
                         font.bold: true
@@ -252,23 +277,27 @@ Popup {
                 }
 
                 Rectangle {
-                    Layout.preferredWidth: 128
-                    Layout.minimumWidth: 128
-                    Layout.maximumWidth: 128
+                    Layout.preferredWidth: 126
+                    Layout.minimumWidth: 126
+                    Layout.maximumWidth: 126
                     Layout.preferredHeight: 34
-                    radius: 7
+                    radius: 8
                     color: locPkgMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg
                     border.color: locPkgMa.containsMouse ? Theme.accent : Theme.btnSecBorder
                     scale: locPkgMa.pressed ? 0.96 : 1.0
-                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on color { ColorAnimation { duration: 130 } }
                     Behavior on scale { NumberAnimation { duration: 100 } }
 
-                    Text {
+                    RowLayout {
                         anchors.centerIn: parent
-                        text: "📄 选择本地压缩包"
-                        font.family: "Microsoft YaHei UI"
-                        font.pixelSize: 12
-                        color: Theme.textPrimary
+                        spacing: 6
+                        VectorIcon { name: "package"; size: 13; color: Theme.textPrimary }
+                        Text {
+                            text: "本地压缩包"
+                            font.family: "Microsoft YaHei UI"
+                            font.pixelSize: 12
+                            color: Theme.textPrimary
+                        }
                     }
                     MouseArea {
                         id: locPkgMa
@@ -281,23 +310,27 @@ Popup {
                 }
 
                 Rectangle {
-                    Layout.preferredWidth: 128
-                    Layout.minimumWidth: 128
-                    Layout.maximumWidth: 128
+                    Layout.preferredWidth: 126
+                    Layout.minimumWidth: 126
+                    Layout.maximumWidth: 126
                     Layout.preferredHeight: 34
-                    radius: 7
+                    radius: 8
                     color: locDirMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg
                     border.color: locDirMa.containsMouse ? Theme.accent : Theme.btnSecBorder
                     scale: locDirMa.pressed ? 0.96 : 1.0
-                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on color { ColorAnimation { duration: 130 } }
                     Behavior on scale { NumberAnimation { duration: 100 } }
 
-                    Text {
+                    RowLayout {
                         anchors.centerIn: parent
-                        text: "📁 选择本地文件夹"
-                        font.family: "Microsoft YaHei UI"
-                        font.pixelSize: 12
-                        color: Theme.textPrimary
+                        spacing: 6
+                        VectorIcon { name: "folder"; size: 13; color: Theme.textPrimary }
+                        Text {
+                            text: "本地文件夹"
+                            font.family: "Microsoft YaHei UI"
+                            font.pixelSize: 12
+                            color: Theme.textPrimary
+                        }
                     }
                     MouseArea {
                         id: locDirMa
@@ -317,7 +350,7 @@ Popup {
             spacing: 8
 
             Text {
-                text: "在线下载位深规格:"
+                text: "位深精度:"
                 font.family: "Microsoft YaHei UI"
                 font.pixelSize: 12
                 color: Theme.textSecondary
@@ -325,9 +358,9 @@ Popup {
 
             Repeater {
                 model: [
-                    { code: "Q8", label: "Q8 (推荐：最省内存 / 速度最快)" },
-                    { code: "Q16", label: "Q16 (16位高色深)" },
-                    { code: "Q16-HDRI", label: "Q16-HDRI (浮点HDR)" }
+                    { code: "Q8", label: "Q8 (推荐 · 省内存)" },
+                    { code: "Q16", label: "Q16 (高色深)" },
+                    { code: "Q16-HDRI", label: "Q16-HDRI (浮点)" }
                 ]
                 delegate: Rectangle {
                     readonly property bool selected: engineManager && engineManager.preferredQuantum === modelData.code
@@ -336,7 +369,7 @@ Popup {
                     radius: 6
                     color: selected ? Theme.accentSoftBg : Theme.btnSecBg
                     border.color: selected ? Theme.accentSoftBorder : Theme.btnSecBorder
-                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on color { ColorAnimation { duration: 130 } }
 
                     Text {
                         id: qTxt
@@ -358,17 +391,21 @@ Popup {
             Item { Layout.fillWidth: true }
 
             Rectangle {
-                Layout.preferredWidth: 96
+                Layout.preferredWidth: 104
                 Layout.preferredHeight: 28
                 radius: 6
                 color: refMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg
                 border.color: Theme.btnSecBorder
-                Text {
+                RowLayout {
                     anchors.centerIn: parent
-                    text: (engineManager && engineManager.isFetchingReleases) ? "刷新中..." : "⟳ 刷新在线源"
-                    font.family: "Microsoft YaHei UI"
-                    font.pixelSize: 11
-                    color: Theme.textPrimary
+                    spacing: 5
+                    VectorIcon { name: "refresh"; size: 12; color: Theme.textPrimary }
+                    Text {
+                        text: (engineManager && engineManager.isFetchingReleases) ? "刷新中..." : "刷新在线源"
+                        font.family: "Microsoft YaHei UI"
+                        font.pixelSize: 11
+                        color: Theme.textPrimary
+                    }
                 }
                 MouseArea {
                     id: refMa
@@ -422,7 +459,7 @@ Popup {
                                 Text {
                                     text: "ImageMagick " + modelData.tag
                                     font.family: "Segoe UI"
-                                    font.pixelSize: 14
+                                    font.pixelSize: 13
                                     font.bold: true
                                     color: Theme.textPrimary
                                 }
@@ -432,7 +469,7 @@ Popup {
                                     color: Theme.accentSoftBg
                                     border.color: Theme.accentSoftBorder
                                     Layout.preferredHeight: 18
-                                    Layout.preferredWidth: 42
+                                    Layout.preferredWidth: 38
                                     Text {
                                         anchors.centerIn: parent
                                         text: "最新"
@@ -448,7 +485,7 @@ Popup {
                                     color: Theme.successBg
                                     border.color: Theme.successBorder
                                     Layout.preferredHeight: 18
-                                    Layout.preferredWidth: 58
+                                    Layout.preferredWidth: 54
                                     Text {
                                         anchors.centerIn: parent
                                         text: "当前使用"
@@ -464,7 +501,7 @@ Popup {
                                 elide: Text.ElideRight
                                 readonly property string qCode: engineManager ? engineManager.preferredQuantum : "Q8"
                                 readonly property string pkgSize: (modelData.sizes && modelData.sizes[qCode]) ? modelData.sizes[qCode] : "~11.6 MB"
-                                text: "发布日期: " + modelData.date + "  ·  下载包(" + qCode + "): " + pkgSize + "  ·  内嵌精简后约 32.6 MB"
+                                text: "发布日期: " + modelData.date + "  ·  下载包(" + qCode + "): " + pkgSize + "  ·  精简后约 32.6 MB"
                                 font.family: "Microsoft YaHei UI"
                                 font.pixelSize: 11
                                 color: Theme.textSecondary
@@ -472,20 +509,20 @@ Popup {
                         }
 
                         Rectangle {
-                            Layout.preferredWidth: 112
-                            Layout.preferredHeight: 32
+                            Layout.preferredWidth: 106
+                            Layout.preferredHeight: 30
                             radius: 7
                             color: isCurrent ? Theme.btnSecBg : (swMa.containsMouse ? Theme.accentHover : Theme.accent)
                             border.color: isCurrent ? Theme.btnSecBorder : Theme.accent
                             scale: swMa.pressed ? 0.96 : 1.0
-                            Behavior on color { ColorAnimation { duration: 140 } }
+                            Behavior on color { ColorAnimation { duration: 130 } }
                             Behavior on scale { NumberAnimation { duration: 100 } }
 
                             Text {
                                 anchors.centerIn: parent
-                                text: isCurrent ? "当前已安装" : "在线切换此版"
+                                text: isCurrent ? "当前已安装" : "切换至此版本"
                                 font.family: "Microsoft YaHei UI"
-                                font.pixelSize: 12
+                                font.pixelSize: 11
                                 font.bold: !isCurrent
                                 color: isCurrent ? Theme.textMuted : "#FFFFFF"
                             }

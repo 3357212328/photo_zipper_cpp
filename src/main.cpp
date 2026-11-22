@@ -42,7 +42,6 @@ int main(int argc, char *argv[])
     app.setWindowIcon(QIcon(QStringLiteral(":/icons/app_icon.png")));
 
     ThemeManager themeMgr;
-    themeMgr.setIsWarmDay(false); // Default to dark mode on fresh start or user toggle
     MemoryMonitor memMonitor;
     ImageMagickManager engineMgr;
     ImageTaskModel taskModel;
@@ -63,6 +62,16 @@ int main(int argc, char *argv[])
         Qt::QueuedConnection);
 
     engine.loadFromModule("PhotoZipper", "Main");
+
+    if (const auto rootObjs = engine.rootObjects(); !rootObjs.isEmpty()) {
+        if (auto* win = qobject_cast<QQuickWindow*>(rootObjs.first())) {
+            themeMgr.applyWindowTheme(win);
+            QObject::connect(&themeMgr, &ThemeManager::themeChanged, win, [&themeMgr, win]() {
+                themeMgr.applyWindowTheme(win);
+            });
+        }
+    }
+    QTimer::singleShot(1500, &memMonitor, &MemoryMonitor::trimWorkingSet);
 
     // Support "--capture-ui=<path>" and "--capture-active-ui=<path>" to render and grab the actual QQuickWindow screenshot for visual verification
     for (const QString& arg : app.arguments()) {
