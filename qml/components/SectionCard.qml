@@ -11,15 +11,11 @@ Rectangle {
     color: Theme.cardBg
     radius: 12
     border.width: 1
-    border.color: hoverHandler.hovered ? Theme.cardHoverBorder : Theme.cardBorder
+    border.color: Theme.cardBorder
     implicitHeight: mainLayout.implicitHeight + 28
 
     Behavior on color { ColorAnimation { duration: 180 } }
     Behavior on border.color { ColorAnimation { duration: 180 } }
-
-    HoverHandler {
-        id: hoverHandler
-    }
 
     ColumnLayout {
         id: mainLayout

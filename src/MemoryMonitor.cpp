@@ -11,26 +11,31 @@
 MemoryMonitor::MemoryMonitor(QObject* parent)
     : QObject(parent)
 {
-    connect(&m_timer, &QTimer::timeout, this, &MemoryMonitor::updateMemoryUsage);
-    m_timer.start(2000);
-    updateMemoryUsage();
-}
-
-void MemoryMonitor::updateMemoryUsage()
-{
-#ifdef Q_OS_WIN
-    PROCESS_MEMORY_COUNTERS_EX pmc;
-    if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc), sizeof(pmc))) {
-        m_appMemoryMB = static_cast<double>(pmc.WorkingSetSize) / (1024.0 * 1024.0);
-        m_appMemoryText = QString::asprintf("%.1f MB", m_appMemoryMB);
-    }
-#endif
     QFileInfo appExe(QCoreApplication::applicationFilePath());
     if (appExe.exists()) {
         double exeMB = static_cast<double>(appExe.size()) / (1024.0 * 1024.0);
         m_appBinarySizeText = QString::asprintf("%.2f MB", exeMB);
     }
-    emit statsChanged();
+
+    connect(&m_timer, &QTimer::timeout, this, &MemoryMonitor::updateMemoryUsage);
+    m_timer.start(3000);
+    updateMemoryUsage();
+}
+
+void MemoryMonitor::updateMemoryUsage()
+{
+    QString newMemText = m_appMemoryText;
+#ifdef Q_OS_WIN
+    PROCESS_MEMORY_COUNTERS_EX pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc), sizeof(pmc))) {
+        m_appMemoryMB = static_cast<double>(pmc.WorkingSetSize) / (1024.0 * 1024.0);
+        newMemText = QString::asprintf("%.1f MB", m_appMemoryMB);
+    }
+#endif
+    if (newMemText != m_appMemoryText) {
+        m_appMemoryText = newMemText;
+        emit statsChanged();
+    }
 }
 
 void MemoryMonitor::refreshDiskSizes(const QString& engineDir)
@@ -47,10 +52,13 @@ void MemoryMonitor::refreshDiskSizes(const QString& engineDir)
         totalBytes += it.fileInfo().size();
     }
 
-    if (totalBytes > 0) {
-        m_engineSizeText = QString::asprintf("%.1f MB", static_cast<double>(totalBytes) / (1024.0 * 1024.0));
-    } else {
-        m_engineSizeText = QStringLiteral("未安装");
+    QString newEngineText = (totalBytes > 0)
+        ? QString::asprintf("%.1f MB", static_cast<double>(totalBytes) / (1024.0 * 1024.0))
+        : QStringLiteral("未安装");
+
+    if (newEngineText != m_engineSizeText) {
+        m_engineSizeText = newEngineText;
+        emit statsChanged();
     }
     updateMemoryUsage();
 }

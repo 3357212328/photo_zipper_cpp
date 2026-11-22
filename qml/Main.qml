@@ -208,6 +208,7 @@ ApplicationWindow {
                             spacing: 5
                             Rectangle { width: 6; height: 6; radius: 3; color: Theme.accent }
                             Text {
+                                Layout.minimumWidth: 88
                                 text: "内存: " + memMonitor.appMemoryText
                                 font.family: "Microsoft YaHei UI"
                                 font.pixelSize: 11

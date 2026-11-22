@@ -4,6 +4,7 @@
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QSGRendererInterface>
+#include <QSurfaceFormat>
 #include <QImageReader>
 #include <QIcon>
 #include <QFileInfo>
@@ -16,9 +17,19 @@
 
 int main(int argc, char *argv[])
 {
-    // Use native Direct3D 11 hardware acceleration and threaded render loop for zero window-move stutter
-    QQuickWindow::setGraphicsApi(QSGRendererInterface::Direct3D11);
-    qputenv("QSG_RENDER_LOOP", "threaded");
+    // Avoid Windows hybrid-GPU (dGPU->iGPU) D3D11 DXGI Flip-Model + threaded render loop stutter during window drag.
+    // OpenGL with basic render loop runs directly on the display-connected iGPU with native DWM window-move smoothness
+    // and substantially lower RAM overhead. Allow env-var override for diagnostics.
+    if (!qEnvironmentVariableIsSet("QSG_RENDER_LOOP")) {
+        qputenv("QSG_RENDER_LOOP", "basic");
+    }
+    if (!qEnvironmentVariableIsSet("QSG_RHI_BACKEND")) {
+        QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+    }
+    QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
+    fmt.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
+    fmt.setSwapInterval(1);
+    QSurfaceFormat::setDefaultFormat(fmt);
 
     // Cap QImageReader allocation limit to 512MB for large 8K+ photos while keeping UI thumbnails small
     QImageReader::setAllocationLimit(512);
