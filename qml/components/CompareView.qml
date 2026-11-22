@@ -4,11 +4,14 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
-    color: "#1B1D21"
-    radius: 10
+    color: Theme.cardAltBg
+    radius: 12
     border.width: 1
-    border.color: "#33373F"
+    border.color: Theme.cardBorder
     clip: true
+
+    Behavior on color { ColorAnimation { duration: 180 } }
+    Behavior on border.color { ColorAnimation { duration: 180 } }
 
     property url originalUrl: ""
     property url compressedUrl: ""
@@ -22,22 +25,22 @@ Rectangle {
     ColumnLayout {
         anchors.centerIn: parent
         visible: root.originalUrl.toString().length === 0
-        spacing: 10
+        spacing: 8
 
         Text {
             Layout.alignment: Qt.AlignHCenter
             text: "🖼️ 前后画质对比预览"
             font.family: "Microsoft YaHei UI"
-            font.pixelSize: 16
+            font.pixelSize: 15
             font.bold: true
-            color: "#A0A7B2"
+            color: Theme.textPrimary
         }
         Text {
             Layout.alignment: Qt.AlignHCenter
             text: "在上方列表点击任意图片，即可在此实时滑动对比「原图 vs 压缩后」细节"
             font.family: "Microsoft YaHei UI"
             font.pixelSize: 12
-            color: "#6B7280"
+            color: Theme.textSecondary
         }
     }
 
@@ -47,19 +50,11 @@ Rectangle {
         anchors.margins: 8
         visible: root.originalUrl.toString().length > 0
 
-        // Checkered background for transparent PNG/WebP
-        Canvas {
+        // Pure GPU Backdrop (Zero Canvas CPU loop lag during window resize/move)
+        Rectangle {
             anchors.fill: parent
-            onPaint: {
-                var ctx = getContext("2d");
-                var sz = 14;
-                for (var y = 0; y < height; y += sz) {
-                    for (var x = 0; x < width; x += sz) {
-                        ctx.fillStyle = ((Math.floor(x / sz) + Math.floor(y / sz)) % 2 === 0) ? "#22252A" : "#1D2024";
-                        ctx.fillRect(x, y, sz, sz);
-                    }
-                }
-            }
+            radius: 8
+            color: Theme.inputBg
         }
 
         // Right/Full layer: Compressed image (or Original if not yet compressed)
@@ -70,9 +65,8 @@ Rectangle {
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             cache: false
-            // Cap texture resolution to keep GPU/RAM memory strictly low
-            sourceSize.width: 1400
-            sourceSize.height: 1000
+            sourceSize.width: 1280
+            sourceSize.height: 800
         }
 
         // Left clipped layer: Original image
@@ -91,8 +85,8 @@ Rectangle {
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
                 cache: false
-                sourceSize.width: 1400
-                sourceSize.height: 1000
+                sourceSize.width: 1280
+                sourceSize.height: 800
             }
         }
 
@@ -103,23 +97,23 @@ Rectangle {
             y: 0
             width: 2
             height: parent.height
-            color: "#94C1FA"
+            color: Theme.accent
 
             Rectangle {
                 anchors.centerIn: parent
-                width: 32
-                height: 32
-                radius: 16
-                color: "#94C1FA"
+                width: 30
+                height: 30
+                radius: 15
+                color: Theme.accent
                 border.width: 2
-                border.color: "#14171C"
+                border.color: "#FFFFFF"
 
                 Text {
                     anchors.centerIn: parent
                     text: "◀▶"
-                    font.pixelSize: 10
+                    font.pixelSize: 9
                     font.bold: true
-                    color: "#11151C"
+                    color: "#FFFFFF"
                 }
             }
         }
@@ -130,18 +124,19 @@ Rectangle {
             anchors.top: parent.top
             anchors.margins: 10
             radius: 6
-            color: "#CC16181D"
-            border.color: "#445063"
-            height: 28
-            width: origLabel.implicitWidth + 20
+            color: Theme.isWarmDay ? "#E6FFFDF9" : "#CC16181D"
+            border.color: Theme.cardBorder
+            height: 26
+            width: origLabel.implicitWidth + 18
 
             Text {
                 id: origLabel
                 anchors.centerIn: parent
                 text: "原图  " + root.originalInfo
                 font.family: "Microsoft YaHei UI"
-                font.pixelSize: 12
-                color: "#E2E8F0"
+                font.pixelSize: 11
+                font.bold: true
+                color: Theme.textPrimary
             }
         }
 
@@ -150,10 +145,10 @@ Rectangle {
             anchors.top: parent.top
             anchors.margins: 10
             radius: 6
-            color: "#CC16181D"
-            border.color: root.compressedUrl.toString().length > 0 ? "#4D7C5D" : "#445063"
-            height: 28
-            width: compLabel.implicitWidth + 20
+            color: Theme.isWarmDay ? "#E6FFFDF9" : "#CC16181D"
+            border.color: root.compressedUrl.toString().length > 0 ? Theme.successBorder : Theme.cardBorder
+            height: 26
+            width: compLabel.implicitWidth + 18
 
             Text {
                 id: compLabel
@@ -162,8 +157,9 @@ Rectangle {
                       ? ("压缩后  " + root.compressedInfo + " (" + root.savedPercent + ")")
                       : "尚未压缩 (展示原图)"
                 font.family: "Microsoft YaHei UI"
-                font.pixelSize: 12
-                color: root.compressedUrl.toString().length > 0 ? "#86EFAC" : "#94A3B8"
+                font.pixelSize: 11
+                font.bold: true
+                color: root.compressedUrl.toString().length > 0 ? Theme.successText : Theme.textSecondary
             }
         }
 

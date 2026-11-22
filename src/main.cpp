@@ -3,6 +3,7 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QSGRendererInterface>
 #include <QImageReader>
 #include <QIcon>
 #include <QFileInfo>
@@ -11,9 +12,14 @@
 #include "ImageMagickManager.h"
 #include "CompressionController.h"
 #include "MemoryMonitor.h"
+#include "ThemeManager.h"
 
 int main(int argc, char *argv[])
 {
+    // Use native Direct3D 11 hardware acceleration and threaded render loop for zero window-move stutter
+    QQuickWindow::setGraphicsApi(QSGRendererInterface::Direct3D11);
+    qputenv("QSG_RENDER_LOOP", "threaded");
+
     // Cap QImageReader allocation limit to 512MB for large 8K+ photos while keeping UI thumbnails small
     QImageReader::setAllocationLimit(512);
     QQuickStyle::setStyle(QStringLiteral("Basic"));
@@ -24,12 +30,15 @@ int main(int argc, char *argv[])
     app.setApplicationVersion(QStringLiteral("1.0.0"));
     app.setWindowIcon(QIcon(QStringLiteral(":/icons/app_icon.png")));
 
+    ThemeManager themeMgr;
+    themeMgr.setIsWarmDay(false); // Default to dark mode on fresh start or user toggle
     MemoryMonitor memMonitor;
     ImageMagickManager engineMgr;
     ImageTaskModel taskModel;
     CompressionController compressCtrl(&taskModel, &engineMgr, &memMonitor);
 
     QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty(QStringLiteral("Theme"), &themeMgr);
     engine.rootContext()->setContextProperty(QStringLiteral("memMonitor"), &memMonitor);
     engine.rootContext()->setContextProperty(QStringLiteral("engineMgr"), &engineMgr);
     engine.rootContext()->setContextProperty(QStringLiteral("taskModel"), &taskModel);
@@ -78,7 +87,18 @@ int main(int argc, char *argv[])
         }
         if (arg.startsWith(QStringLiteral("--capture-ui="))) {
             const QString outPng = arg.mid(QStringLiteral("--capture-ui=").length());
-            QTimer::singleShot(900, &app, [&, outPng]() {
+            const bool warm = app.arguments().contains(QStringLiteral("--warm"));
+            const bool showEngine = app.arguments().contains(QStringLiteral("--dialog"));
+            QTimer::singleShot(400, &app, [&, warm, showEngine]() {
+                themeMgr.setIsWarmDay(warm);
+                const auto rootObjs = engine.rootObjects();
+                if (!rootObjs.isEmpty()) {
+                    if (showEngine) {
+                        QMetaObject::invokeMethod(rootObjs.first(), "openEngineDialog");
+                    }
+                }
+            });
+            QTimer::singleShot(1400, &app, [&, outPng]() {
                 const auto rootObjs = engine.rootObjects();
                 if (!rootObjs.isEmpty()) {
                     if (auto* win = qobject_cast<QQuickWindow*>(rootObjs.first())) {

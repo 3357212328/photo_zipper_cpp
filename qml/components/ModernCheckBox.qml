@@ -11,27 +11,27 @@ Item {
     implicitWidth: mainRow.implicitWidth
     implicitHeight: 30
 
-    scale: mouseArea.pressed ? 0.97 : 1.0
-    Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutQuad } }
+    scale: mouseArea.pressed ? 0.96 : 1.0
+    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
 
     RowLayout {
         id: mainRow
         anchors.verticalCenter: parent.verticalCenter
         spacing: 10
 
-        // Mode A: Modern Animated Toggle Switch (when switchStyle == true)
+        // Mode A: Modern Animated Toggle Switch
         Rectangle {
             visible: root.switchStyle
             Layout.preferredWidth: 38
             Layout.preferredHeight: 20
             radius: 10
             color: root.checked
-                   ? (mouseArea.containsMouse ? "#60A5FA" : "#3B82F6")
-                   : (mouseArea.containsMouse ? "#475569" : "#334155")
+                   ? (mouseArea.containsMouse ? Theme.accentHover : Theme.accent)
+                   : (mouseArea.containsMouse ? Theme.cardHoverBorder : Theme.inputBorder)
             border.width: 1
-            border.color: root.checked ? "#93C5FD" : "#475569"
+            border.color: root.checked ? Theme.accent : Theme.cardBorder
 
-            Behavior on color { ColorAnimation { duration: 180 } }
+            Behavior on color { ColorAnimation { duration: 160 } }
 
             Rectangle {
                 y: 2
@@ -42,47 +42,37 @@ Item {
                 color: "#FFFFFF"
 
                 Behavior on x {
-                    NumberAnimation { duration: 180; easing.type: Easing.OutBack }
+                    NumberAnimation { duration: 160; easing.type: Easing.OutBack }
                 }
             }
         }
 
-        // Mode B: Animated Modern Checkbox (default)
+        // Mode B: Pure GPU Animated Checkbox (Zero Canvas Overhead)
         Rectangle {
             visible: !root.switchStyle
             Layout.preferredWidth: 18
             Layout.preferredHeight: 18
             radius: 5
             color: root.checked
-                   ? (mouseArea.containsMouse ? "#60A5FA" : "#3B82F6")
-                   : (mouseArea.containsMouse ? "#2B313D" : "#1E222A")
+                   ? (mouseArea.containsMouse ? Theme.accentHover : Theme.accent)
+                   : (mouseArea.containsMouse ? Theme.inputHoverBg : Theme.inputBg)
             border.width: root.checked ? 0 : 1.5
-            border.color: mouseArea.containsMouse ? "#60A5FA" : "#525B6C"
+            border.color: mouseArea.containsMouse ? Theme.accent : Theme.inputBorder
 
-            Behavior on color { ColorAnimation { duration: 150 } }
-            Behavior on border.color { ColorAnimation { duration: 150 } }
+            Behavior on color { ColorAnimation { duration: 140 } }
+            Behavior on border.color { ColorAnimation { duration: 140 } }
 
-            Canvas {
-                id: checkCanvas
-                anchors.fill: parent
+            Text {
+                anchors.centerIn: parent
+                text: "✓"
+                font.family: "Segoe UI"
+                font.pixelSize: 12
+                font.bold: true
+                color: "#FFFFFF"
                 scale: root.checked ? 1.0 : 0.2
                 opacity: root.checked ? 1.0 : 0.0
-                Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
-                Behavior on opacity { NumberAnimation { duration: 130 } }
-
-                onPaint: {
-                    var ctx = getContext("2d");
-                    ctx.reset();
-                    ctx.strokeStyle = "#FFFFFF";
-                    ctx.lineWidth = 2.0;
-                    ctx.lineCap = "round";
-                    ctx.lineJoin = "round";
-                    ctx.beginPath();
-                    ctx.moveTo(4.0, 9.2);
-                    ctx.lineTo(7.5, 12.8);
-                    ctx.lineTo(14.0, 5.4);
-                    ctx.stroke();
-                }
+                Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack } }
+                Behavior on opacity { NumberAnimation { duration: 120 } }
             }
         }
 
@@ -90,7 +80,7 @@ Item {
             text: root.text
             font.family: "Microsoft YaHei UI"
             font.pixelSize: 13
-            color: mouseArea.containsMouse ? "#F8FAFC" : "#CBD5E1"
+            color: mouseArea.containsMouse ? Theme.textPrimary : Theme.textSecondary
             elide: Text.ElideRight
             Behavior on color { ColorAnimation { duration: 140 } }
         }

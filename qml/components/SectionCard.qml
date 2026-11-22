@@ -8,12 +8,13 @@ Rectangle {
     property alias headerRight: headerRightSlot.data
     default property alias bodyContent: contentCol.data
 
-    color: "#262A32"
+    color: Theme.cardBg
     radius: 12
     border.width: 1
-    border.color: hoverHandler.hovered ? "#424A59" : "#343944"
+    border.color: hoverHandler.hovered ? Theme.cardHoverBorder : Theme.cardBorder
     implicitHeight: mainLayout.implicitHeight + 28
 
+    Behavior on color { ColorAnimation { duration: 180 } }
     Behavior on border.color { ColorAnimation { duration: 180 } }
 
     HoverHandler {
@@ -43,7 +44,8 @@ Rectangle {
                     font.family: "Microsoft YaHei UI"
                     font.pixelSize: 14
                     font.bold: true
-                    color: "#F1F5F9"
+                    color: Theme.textPrimary
+                    Behavior on color { ColorAnimation { duration: 160 } }
                 }
                 Text {
                     Layout.fillWidth: true
@@ -52,7 +54,8 @@ Rectangle {
                     text: root.subtitle
                     font.family: "Microsoft YaHei UI"
                     font.pixelSize: 11
-                    color: "#8A94A6"
+                    color: Theme.textSecondary
+                    Behavior on color { ColorAnimation { duration: 160 } }
                 }
             }
 

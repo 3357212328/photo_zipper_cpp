@@ -12,13 +12,22 @@ ApplicationWindow {
     minimumHeight: 680
     visible: true
     title: "PhotoZipper C++ · 现代高性能图片压缩工作站 (Powered by ImageMagick)"
-    color: "#16181D"
+    color: Theme.windowBg
+
+    Behavior on color { ColorAnimation { duration: 200 } }
 
     property int selectedTaskIndex: -1
-    property int activeSettingsTab: 0   // 0=尺寸与压缩, 1=画质与水印, 2=输出与命令
+    property int activeSettingsTab: 0   // 0=尺寸与压缩, 1=画质与水印, 2=输出设置
     property bool showComparePanel: false
     property string toastText: ""
     property bool toastError: false
+
+    function openEngineDialog() {
+        engineDialog.open()
+    }
+    function setWarmDayTheme(val) {
+        Theme.isWarmDay = val
+    }
 
     function refreshSelectedPreview() {
         if (selectedTaskIndex < 0 || selectedTaskIndex >= taskModel.totalCount) {
@@ -130,13 +139,14 @@ ApplicationWindow {
         anchors.fill: parent
         spacing: 0
 
-        // ==================== 1. TOP NAVIGATION HEADER (Strictly Fixed 56px Height) ====================
+        // ==================== 1. TOP NAVIGATION HEADER ====================
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 56
             Layout.minimumHeight: 56
             Layout.maximumHeight: 56
-            color: "#111318"
+            color: Theme.headerBg
+            Behavior on color { ColorAnimation { duration: 200 } }
 
             RowLayout {
                 anchors.fill: parent
@@ -144,7 +154,7 @@ ApplicationWindow {
                 anchors.rightMargin: 18
                 spacing: 12
 
-                // Brand App Icon (Explicitly constrained to 34x34 so it NEVER inflates the layout)
+                // Brand App Icon
                 Rectangle {
                     Layout.preferredWidth: 36
                     Layout.preferredHeight: 36
@@ -168,13 +178,13 @@ ApplicationWindow {
                         font.family: "Segoe UI"
                         font.pixelSize: 15
                         font.bold: true
-                        color: "#F8FAFC"
+                        color: Theme.textPrimary
                     }
                     Text {
                         text: "Qt Quick 6.8 · 内嵌单版本 ImageMagick 高性能图像压缩工作站"
                         font.family: "Microsoft YaHei UI"
                         font.pixelSize: 11
-                        color: "#64748B"
+                        color: Theme.textMuted
                     }
                 }
 
@@ -185,8 +195,9 @@ ApplicationWindow {
                     Layout.preferredHeight: 32
                     Layout.preferredWidth: resRow.implicitWidth + 22
                     radius: 16
-                    color: "#1A1E26"
-                    border.color: "#2A303C"
+                    color: Theme.cardBg
+                    border.color: Theme.cardBorder
+                    Behavior on color { ColorAnimation { duration: 180 } }
 
                     RowLayout {
                         id: resRow
@@ -195,21 +206,58 @@ ApplicationWindow {
 
                         RowLayout {
                             spacing: 5
-                            Rectangle { width: 6; height: 6; radius: 3; color: "#38BDF8" }
+                            Rectangle { width: 6; height: 6; radius: 3; color: Theme.accent }
                             Text {
                                 text: "内存: " + memMonitor.appMemoryText
                                 font.family: "Microsoft YaHei UI"
                                 font.pixelSize: 11
-                                color: "#BAE6FD"
+                                font.bold: true
+                                color: Theme.textPrimary
                             }
                         }
-                        Rectangle { width: 1; height: 12; color: "#2E3543" }
+                        Rectangle { width: 1; height: 12; color: Theme.cardBorder }
                         Text {
                             text: "主程序: " + memMonitor.appBinarySizeText + " · 引擎: " + memMonitor.engineSizeText
                             font.family: "Microsoft YaHei UI"
                             font.pixelSize: 11
-                            color: "#94A3B8"
+                            color: Theme.textSecondary
                         }
+                    }
+                }
+
+                // Warm Daylight / Dark Night Theme Switcher Button
+                Rectangle {
+                    Layout.preferredHeight: 34
+                    Layout.preferredWidth: themeRow.implicitWidth + 20
+                    radius: 8
+                    color: themeMa.containsMouse ? Theme.btnSecHoverBg : Theme.cardBg
+                    border.color: themeMa.containsMouse ? Theme.accent : Theme.cardBorder
+                    scale: themeMa.pressed ? 0.95 : 1.0
+
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on border.color { ColorAnimation { duration: 150 } }
+                    Behavior on scale { NumberAnimation { duration: 100 } }
+
+                    RowLayout {
+                        id: themeRow
+                        anchors.centerIn: parent
+                        spacing: 6
+
+                        Text {
+                            text: Theme.isWarmDay ? "☀️ 暖阳日间" : "🌙 深邃夜间"
+                            font.family: "Microsoft YaHei UI"
+                            font.pixelSize: 12
+                            font.bold: true
+                            color: Theme.textPrimary
+                        }
+                    }
+
+                    MouseArea {
+                        id: themeMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Theme.toggle()
                     }
                 }
 
@@ -217,15 +265,15 @@ ApplicationWindow {
                 Rectangle {
                     id: engineHeaderBtn
                     Layout.preferredHeight: 34
-                    Layout.preferredWidth: engBtnRow.implicitWidth + 22
+                    Layout.preferredWidth: engBtnRow.implicitWidth + 20
                     radius: 8
-                    color: engMa.containsMouse ? "#252C38" : "#1C2029"
-                    border.color: engineMgr.isInstalled ? (engMa.containsMouse ? "#60A5FA" : "#384761") : "#F43F5E"
+                    color: engMa.containsMouse ? Theme.btnSecHoverBg : Theme.cardBg
+                    border.color: engineMgr.isInstalled ? (engMa.containsMouse ? Theme.accent : Theme.cardBorder) : "#F43F5E"
                     scale: engMa.pressed ? 0.96 : 1.0
 
                     Behavior on color { ColorAnimation { duration: 150 } }
                     Behavior on border.color { ColorAnimation { duration: 150 } }
-                    Behavior on scale { NumberAnimation { duration: 110 } }
+                    Behavior on scale { NumberAnimation { duration: 100 } }
 
                     RowLayout {
                         id: engBtnRow
@@ -236,7 +284,7 @@ ApplicationWindow {
                             width: 8
                             height: 8
                             radius: 4
-                            color: engineMgr.isInstalled ? "#4ADE80" : "#FB7185"
+                            color: engineMgr.isInstalled ? "#22C55E" : "#EF4444"
                         }
                         Text {
                             text: engineMgr.isInstalled
@@ -245,13 +293,14 @@ ApplicationWindow {
                             font.family: "Segoe UI"
                             font.pixelSize: 12
                             font.bold: true
-                            color: "#E2E8F0"
+                            color: Theme.textPrimary
                         }
                         Rectangle {
                             radius: 5
-                            color: "#2563EB"
+                            color: Theme.accent
                             Layout.preferredHeight: 20
                             Layout.preferredWidth: 64
+                            Behavior on color { ColorAnimation { duration: 150 } }
                             Text {
                                 anchors.centerIn: parent
                                 text: "引擎管理"
@@ -277,7 +326,7 @@ ApplicationWindow {
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: 1
-                color: "#222630"
+                color: Theme.headerBorder
             }
         }
 
@@ -301,8 +350,9 @@ ApplicationWindow {
                     Layout.minimumHeight: 48
                     Layout.maximumHeight: 48
                     radius: 10
-                    color: "#1E222A"
-                    border.color: "#2C323E"
+                    color: Theme.cardBg
+                    border.color: Theme.cardBorder
+                    Behavior on color { ColorAnimation { duration: 180 } }
 
                     RowLayout {
                         anchors.fill: parent
@@ -315,7 +365,7 @@ ApplicationWindow {
                             Layout.preferredHeight: 32
                             Layout.preferredWidth: 102
                             radius: 7
-                            color: addFileMa.containsMouse ? "#60A5FA" : "#3B82F6"
+                            color: addFileMa.containsMouse ? Theme.accentHover : Theme.accent
                             scale: addFileMa.pressed ? 0.95 : 1.0
                             Behavior on color { ColorAnimation { duration: 140 } }
                             Behavior on scale { NumberAnimation { duration: 100 } }
@@ -342,8 +392,8 @@ ApplicationWindow {
                             Layout.preferredHeight: 32
                             Layout.preferredWidth: 110
                             radius: 7
-                            color: addDirMa.containsMouse ? "#2E3543" : "#252A34"
-                            border.color: addDirMa.containsMouse ? "#4E596F" : "#373E4C"
+                            color: addDirMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg
+                            border.color: addDirMa.containsMouse ? Theme.cardHoverBorder : Theme.btnSecBorder
                             scale: addDirMa.pressed ? 0.95 : 1.0
                             Behavior on color { ColorAnimation { duration: 140 } }
                             Behavior on scale { NumberAnimation { duration: 100 } }
@@ -353,7 +403,7 @@ ApplicationWindow {
                                 text: "📁 添加文件夹"
                                 font.family: "Microsoft YaHei UI"
                                 font.pixelSize: 12
-                                color: "#E2E8F0"
+                                color: Theme.textPrimary
                             }
                             MouseArea {
                                 id: addDirMa
@@ -369,8 +419,8 @@ ApplicationWindow {
                             Layout.preferredHeight: 32
                             Layout.preferredWidth: 118
                             radius: 7
-                            color: sampleMa.containsMouse ? "#2E3543" : "#252A34"
-                            border.color: sampleMa.containsMouse ? "#60A5FA" : "#373E4C"
+                            color: sampleMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg
+                            border.color: sampleMa.containsMouse ? Theme.accent : Theme.btnSecBorder
                             scale: sampleMa.pressed ? 0.95 : 1.0
                             Behavior on color { ColorAnimation { duration: 140 } }
                             Behavior on border.color { ColorAnimation { duration: 140 } }
@@ -381,7 +431,8 @@ ApplicationWindow {
                                 text: "✨ 导入测试样张"
                                 font.family: "Microsoft YaHei UI"
                                 font.pixelSize: 12
-                                color: "#93C5FD"
+                                font.bold: true
+                                color: Theme.accent
                             }
                             MouseArea {
                                 id: sampleMa
@@ -400,8 +451,8 @@ ApplicationWindow {
                             Layout.preferredHeight: 28
                             Layout.preferredWidth: statRow.implicitWidth + 18
                             radius: 14
-                            color: "#15241D"
-                            border.color: "#234733"
+                            color: Theme.successBg
+                            border.color: Theme.successBorder
 
                             RowLayout {
                                 id: statRow
@@ -413,7 +464,8 @@ ApplicationWindow {
                                           + " (省 " + taskModel.totalSavedText + ")"
                                     font.family: "Microsoft YaHei UI"
                                     font.pixelSize: 11
-                                    color: "#86EFAC"
+                                    font.bold: true
+                                    color: Theme.successText
                                 }
                             }
                         }
@@ -424,11 +476,11 @@ ApplicationWindow {
                             Layout.preferredWidth: 96
                             radius: 7
                             color: window.showComparePanel
-                                   ? "#1E3A8A"
-                                   : (cmpToggleMa.containsMouse ? "#2E3543" : "#252A34")
-                            border.color: window.showComparePanel ? "#60A5FA" : "#373E4C"
+                                   ? Theme.accentSoftBg
+                                   : (cmpToggleMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg)
+                            border.color: window.showComparePanel ? Theme.accentSoftBorder : Theme.btnSecBorder
                             scale: cmpToggleMa.pressed ? 0.95 : 1.0
-                            Behavior on color { ColorAnimation { duration: 150 } }
+                            Behavior on color { ColorAnimation { duration: 140 } }
                             Behavior on scale { NumberAnimation { duration: 100 } }
 
                             Text {
@@ -437,7 +489,7 @@ ApplicationWindow {
                                 font.family: "Microsoft YaHei UI"
                                 font.pixelSize: 11
                                 font.bold: window.showComparePanel
-                                color: window.showComparePanel ? "#93C5FD" : "#CBD5E1"
+                                color: window.showComparePanel ? Theme.accentSoftText : Theme.textPrimary
                             }
                             MouseArea {
                                 id: cmpToggleMa
@@ -454,8 +506,8 @@ ApplicationWindow {
                             Layout.preferredHeight: 30
                             Layout.preferredWidth: 68
                             radius: 7
-                            color: clrAllMa.containsMouse ? "#4C1D24" : "#252A34"
-                            border.color: clrAllMa.containsMouse ? "#F43F5E" : "#373E4C"
+                            color: clrAllMa.containsMouse ? Theme.dangerBg : Theme.btnSecBg
+                            border.color: clrAllMa.containsMouse ? Theme.dangerBorder : Theme.btnSecBorder
                             scale: clrAllMa.pressed ? 0.95 : 1.0
                             Behavior on color { ColorAnimation { duration: 140 } }
 
@@ -464,7 +516,7 @@ ApplicationWindow {
                                 text: "清空"
                                 font.family: "Microsoft YaHei UI"
                                 font.pixelSize: 11
-                                color: "#FDA4AF"
+                                color: Theme.dangerText
                             }
                             MouseArea {
                                 id: clrAllMa
@@ -486,22 +538,20 @@ ApplicationWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    color: "#1B1E25"
+                    color: Theme.cardAltBg
                     radius: 12
-                    border.color: globalDropArea.containsDrag ? "#60A5FA" : "#2A303C"
+                    border.color: globalDropArea.containsDrag ? Theme.accent : Theme.cardBorder
                     border.width: globalDropArea.containsDrag ? 2 : 1
                     clip: true
 
+                    Behavior on color { ColorAnimation { duration: 180 } }
                     Behavior on border.color { ColorAnimation { duration: 180 } }
 
-                    // Empty Dropzone State with Breathing Pulse Animation
+                    // Empty Dropzone State (No infinite background animation loop = zero window drag stutter!)
                     ColumnLayout {
                         anchors.centerIn: parent
                         visible: taskModel.totalCount === 0
-                        opacity: visible ? 1.0 : 0.0
                         spacing: 14
-
-                        Behavior on opacity { NumberAnimation { duration: 220 } }
 
                         Rectangle {
                             id: dropCircle
@@ -509,16 +559,12 @@ ApplicationWindow {
                             width: 76
                             height: 76
                             radius: 38
-                            color: "#222731"
-                            border.color: "#3B82F6"
+                            color: Theme.cardBg
+                            border.color: globalDropArea.containsDrag ? Theme.accent : Theme.cardHoverBorder
                             border.width: 1.5
-
-                            SequentialAnimation on scale {
-                                loops: Animation.Infinite
-                                running: taskModel.totalCount === 0
-                                NumberAnimation { from: 1.0; to: 1.06; duration: 1600; easing.type: Easing.InOutSine }
-                                NumberAnimation { from: 1.06; to: 1.0; duration: 1600; easing.type: Easing.InOutSine }
-                            }
+                            scale: globalDropArea.containsDrag ? 1.12 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+                            Behavior on color { ColorAnimation { duration: 180 } }
 
                             Text {
                                 anchors.centerIn: parent
@@ -533,7 +579,7 @@ ApplicationWindow {
                             font.family: "Microsoft YaHei UI"
                             font.pixelSize: 17
                             font.bold: true
-                            color: "#F1F5F9"
+                            color: Theme.textPrimary
                         }
 
                         Text {
@@ -541,7 +587,7 @@ ApplicationWindow {
                             text: "支持 JPG / PNG / WebP / AVIF / JXL / HEIC / TIFF / BMP 等全格式高并发处理"
                             font.family: "Microsoft YaHei UI"
                             font.pixelSize: 12
-                            color: "#64748B"
+                            color: Theme.textSecondary
                         }
 
                         RowLayout {
@@ -552,7 +598,7 @@ ApplicationWindow {
                                 Layout.preferredWidth: 136
                                 Layout.preferredHeight: 38
                                 radius: 8
-                                color: emptyAddMa.containsMouse ? "#60A5FA" : "#3B82F6"
+                                color: emptyAddMa.containsMouse ? Theme.accentHover : Theme.accent
                                 scale: emptyAddMa.pressed ? 0.96 : 1.0
                                 Behavior on color { ColorAnimation { duration: 140 } }
                                 Behavior on scale { NumberAnimation { duration: 100 } }
@@ -578,8 +624,8 @@ ApplicationWindow {
                                 Layout.preferredWidth: 158
                                 Layout.preferredHeight: 38
                                 radius: 8
-                                color: emptySampleMa.containsMouse ? "#2C3342" : "#232833"
-                                border.color: emptySampleMa.containsMouse ? "#60A5FA" : "#3A4252"
+                                color: emptySampleMa.containsMouse ? Theme.btnSecHoverBg : Theme.cardBg
+                                border.color: emptySampleMa.containsMouse ? Theme.accent : Theme.cardHoverBorder
                                 scale: emptySampleMa.pressed ? 0.96 : 1.0
                                 Behavior on color { ColorAnimation { duration: 140 } }
                                 Behavior on border.color { ColorAnimation { duration: 140 } }
@@ -590,7 +636,8 @@ ApplicationWindow {
                                     text: "✨ 一键生成测试样张"
                                     font.family: "Microsoft YaHei UI"
                                     font.pixelSize: 13
-                                    color: "#E2E8F0"
+                                    font.bold: true
+                                    color: Theme.textPrimary
                                 }
                                 MouseArea {
                                     id: emptySampleMa
@@ -615,18 +662,15 @@ ApplicationWindow {
 
                         add: Transition {
                             ParallelAnimation {
-                                NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic }
-                                NumberAnimation { property: "y"; from: 20; duration: 220; easing.type: Easing.OutCubic }
+                                NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 180; easing.type: Easing.OutCubic }
+                                NumberAnimation { property: "y"; from: 16; duration: 180; easing.type: Easing.OutCubic }
                             }
                         }
                         remove: Transition {
                             ParallelAnimation {
-                                NumberAnimation { property: "opacity"; to: 0; duration: 160 }
-                                NumberAnimation { property: "scale"; to: 0.92; duration: 160 }
+                                NumberAnimation { property: "opacity"; to: 0; duration: 140 }
+                                NumberAnimation { property: "scale"; to: 0.94; duration: 140 }
                             }
-                        }
-                        displaced: Transition {
-                            NumberAnimation { properties: "x,y"; duration: 180; easing.type: Easing.OutCubic }
                         }
 
                         delegate: Rectangle {
@@ -634,12 +678,11 @@ ApplicationWindow {
                             height: 64
                             radius: 10
                             readonly property bool isSelected: index === window.selectedTaskIndex
-                            color: isSelected ? "#233047" : (rowMa.containsMouse ? "#242A35" : "#20242D")
-                            border.color: isSelected ? "#3B82F6" : (rowMa.containsMouse ? "#384152" : "#2B303C")
+                            color: isSelected ? Theme.rowSelectedBg : (rowMa.containsMouse ? Theme.rowHoverBg : Theme.rowBg)
+                            border.color: isSelected ? Theme.accent : (rowMa.containsMouse ? Theme.cardHoverBorder : Theme.cardBorder)
                             border.width: isSelected ? 1.5 : 1
 
-                            Behavior on color { ColorAnimation { duration: 140 } }
-                            Behavior on border.color { ColorAnimation { duration: 140 } }
+                            Behavior on color { ColorAnimation { duration: 130 } }
 
                             MouseArea {
                                 id: rowMa
@@ -664,8 +707,8 @@ ApplicationWindow {
                                     Layout.preferredWidth: 46
                                     Layout.preferredHeight: 46
                                     radius: 7
-                                    color: "#14171D"
-                                    border.color: "#333A48"
+                                    color: Theme.inputBg
+                                    border.color: Theme.cardBorder
                                     clip: true
 
                                     Image {
@@ -688,7 +731,8 @@ ApplicationWindow {
                                         spacing: 8
                                         Rectangle {
                                             radius: 4
-                                            color: "#1E3A8A"
+                                            color: Theme.accentSoftBg
+                                            border.color: Theme.accentSoftBorder
                                             Layout.preferredHeight: 18
                                             Layout.preferredWidth: fmtTxt.implicitWidth + 10
                                             Text {
@@ -698,7 +742,7 @@ ApplicationWindow {
                                                 font.family: "Segoe UI"
                                                 font.pixelSize: 10
                                                 font.bold: true
-                                                color: "#93C5FD"
+                                                color: Theme.accentSoftText
                                             }
                                         }
                                         Text {
@@ -708,7 +752,7 @@ ApplicationWindow {
                                             font.family: "Microsoft YaHei UI"
                                             font.pixelSize: 13
                                             font.bold: true
-                                            color: "#F8FAFC"
+                                            color: Theme.textPrimary
                                         }
                                     }
                                     Text {
@@ -717,7 +761,7 @@ ApplicationWindow {
                                               + (model.elapsedMs > 0 ? ("  ·  " + model.elapsedMs + " ms") : "")
                                         font.family: "Microsoft YaHei UI"
                                         font.pixelSize: 11
-                                        color: "#8A94A6"
+                                        color: Theme.textSecondary
                                     }
                                 }
 
@@ -731,7 +775,7 @@ ApplicationWindow {
                                         font.family: "Segoe UI"
                                         font.pixelSize: 13
                                         font.bold: true
-                                        color: "#E2E8F0"
+                                        color: Theme.textPrimary
                                     }
                                     Text {
                                         Layout.alignment: Qt.AlignRight
@@ -739,7 +783,7 @@ ApplicationWindow {
                                         font.family: "Microsoft YaHei UI"
                                         font.pixelSize: 11
                                         font.bold: model.savedPositive
-                                        color: model.savedPositive ? "#4ADE80" : "#64748B"
+                                        color: model.savedPositive ? Theme.successText : Theme.textMuted
                                     }
                                 }
 
@@ -748,10 +792,11 @@ ApplicationWindow {
                                     Layout.preferredWidth: 66
                                     Layout.preferredHeight: 26
                                     radius: 6
-                                    color: model.status === "已完成" ? "#14532D"
-                                         : (model.status === "处理中" ? "#1E3A8A"
-                                         : (model.status === "失败" ? "#7F1D1D" : "#2A303C"))
-                                    Behavior on color { ColorAnimation { duration: 180 } }
+                                    color: model.status === "已完成" ? Theme.successBg
+                                         : (model.status === "处理中" ? Theme.accentSoftBg
+                                         : (model.status === "失败" ? Theme.dangerBg : Theme.btnSecBg))
+                                    border.color: model.status === "已完成" ? Theme.successBorder
+                                                : (model.status === "处理中" ? Theme.accentSoftBorder : Theme.btnSecBorder)
 
                                     Text {
                                         anchors.centerIn: parent
@@ -759,9 +804,9 @@ ApplicationWindow {
                                         font.family: "Microsoft YaHei UI"
                                         font.pixelSize: 11
                                         font.bold: true
-                                        color: model.status === "已完成" ? "#86EFAC"
-                                             : (model.status === "处理中" ? "#93C5FD"
-                                             : (model.status === "失败" ? "#FCA5A5" : "#94A3B8"))
+                                        color: model.status === "已完成" ? Theme.successText
+                                             : (model.status === "处理中" ? Theme.accentSoftText
+                                             : (model.status === "失败" ? Theme.dangerText : Theme.textSecondary))
                                     }
                                 }
 
@@ -771,7 +816,7 @@ ApplicationWindow {
                                     Layout.preferredWidth: 28
                                     Layout.preferredHeight: 28
                                     radius: 6
-                                    color: locMa.containsMouse ? "#333C4D" : "transparent"
+                                    color: locMa.containsMouse ? Theme.btnSecHoverBg : "transparent"
                                     Text {
                                         anchors.centerIn: parent
                                         text: "📂"
@@ -791,12 +836,12 @@ ApplicationWindow {
                                     Layout.preferredWidth: 26
                                     Layout.preferredHeight: 26
                                     radius: 6
-                                    color: delMa.containsMouse ? "#4C1D24" : "transparent"
+                                    color: delMa.containsMouse ? Theme.dangerBg : "transparent"
                                     Text {
                                         anchors.centerIn: parent
                                         text: "✕"
                                         font.pixelSize: 12
-                                        color: delMa.containsMouse ? "#FDA4AF" : "#64748B"
+                                        color: delMa.containsMouse ? Theme.dangerText : Theme.textMuted
                                     }
                                     MouseArea {
                                         id: delMa
@@ -827,15 +872,15 @@ ApplicationWindow {
                     visible: Layout.preferredHeight > 2
 
                     Behavior on Layout.preferredHeight {
-                        NumberAnimation { duration: 260; easing.type: Easing.OutCubic }
+                        NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
                     }
                     Behavior on opacity {
-                        NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+                        NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
                     }
                 }
             }
 
-            // ---------- RIGHT PANE: Clean Tabbed Settings Architecture (Zero Clutter) ----------
+            // ---------- RIGHT PANE: Clean Tabbed Settings Architecture ----------
             ColumnLayout {
                 Layout.preferredWidth: 420
                 Layout.minimumWidth: 420
@@ -850,8 +895,9 @@ ApplicationWindow {
                     Layout.minimumHeight: 48
                     Layout.maximumHeight: 48
                     radius: 10
-                    color: "#1E222A"
-                    border.color: "#2C323E"
+                    color: Theme.cardBg
+                    border.color: Theme.cardBorder
+                    Behavior on color { ColorAnimation { duration: 180 } }
 
                     RowLayout {
                         anchors.fill: parent
@@ -864,7 +910,7 @@ ApplicationWindow {
                             font.family: "Microsoft YaHei UI"
                             font.pixelSize: 12
                             font.bold: true
-                            color: "#93C5FD"
+                            color: Theme.accent
                         }
 
                         ModernComboBox {
@@ -883,7 +929,7 @@ ApplicationWindow {
                     }
                 }
 
-                // Segmented Animated Tab Bar (3 Clean Tabs instead of a messy wall of cards!)
+                // Segmented Animated Tab Bar
                 Rectangle {
                     id: tabBarContainer
                     Layout.fillWidth: true
@@ -891,8 +937,9 @@ ApplicationWindow {
                     Layout.minimumHeight: 40
                     Layout.maximumHeight: 40
                     radius: 10
-                    color: "#181B22"
-                    border.color: "#282D38"
+                    color: Theme.cardAltBg
+                    border.color: Theme.cardBorder
+                    Behavior on color { ColorAnimation { duration: 180 } }
 
                     readonly property real tabWidth: (width - 8) / 3
 
@@ -903,11 +950,12 @@ ApplicationWindow {
                         width: tabBarContainer.tabWidth
                         height: parent.height - 8
                         radius: 7
-                        color: "#2563EB"
+                        color: Theme.accent
 
                         Behavior on x {
-                            NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+                            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
                         }
+                        Behavior on color { ColorAnimation { duration: 180 } }
                     }
 
                     RowLayout {
@@ -927,8 +975,8 @@ ApplicationWindow {
                                     font.family: "Microsoft YaHei UI"
                                     font.pixelSize: 12
                                     font.bold: window.activeSettingsTab === index
-                                    color: window.activeSettingsTab === index ? "#FFFFFF" : "#94A3B8"
-                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                    color: window.activeSettingsTab === index ? "#FFFFFF" : Theme.textSecondary
+                                    Behavior on color { ColorAnimation { duration: 140 } }
                                 }
 
                                 MouseArea {
@@ -941,13 +989,13 @@ ApplicationWindow {
                     }
                 }
 
-                // Tab Content Container (Animated Cross-Fade & Slide)
+                // Tab Content Container
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
 
-                    // ==================== TAB 0: 尺寸与压缩 (Core Resize & Compression) ====================
+                    // ==================== TAB 0: 尺寸与压缩 ====================
                     ColumnLayout {
                         anchors.left: parent.left
                         anchors.right: parent.right
@@ -956,10 +1004,10 @@ ApplicationWindow {
                         visible: opacity > 0.01
                         opacity: window.activeSettingsTab === 0 ? 1.0 : 0.0
                         transform: Translate {
-                            x: window.activeSettingsTab === 0 ? 0 : -18
-                            Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                            x: window.activeSettingsTab === 0 ? 0 : -14
+                            Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
                         }
-                        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                        Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                         // Card 1: 尺寸调整
                         SectionCard {
@@ -980,7 +1028,6 @@ ApplicationWindow {
                                 Layout.fillWidth: true
                                 enabled: compressCtrl.resizeEnabled
                                 opacity: compressCtrl.resizeEnabled ? 1.0 : 0.4
-                                Behavior on opacity { NumberAnimation { duration: 150 } }
                                 spacing: 6
 
                                 Repeater {
@@ -998,10 +1045,10 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 26
                                         radius: 6
-                                        color: active ? "#1E3A8A" : (chipMa.containsMouse ? "#2D3340" : "#1E222A")
-                                        border.color: active ? "#60A5FA" : "#353B48"
+                                        color: active ? Theme.accentSoftBg : (chipMa.containsMouse ? Theme.btnSecHoverBg : Theme.inputBg)
+                                        border.color: active ? Theme.accentSoftBorder : Theme.inputBorder
                                         scale: chipMa.pressed ? 0.94 : 1.0
-                                        Behavior on color { ColorAnimation { duration: 140 } }
+                                        Behavior on color { ColorAnimation { duration: 130 } }
                                         Behavior on scale { NumberAnimation { duration: 100 } }
 
                                         Text {
@@ -1010,7 +1057,7 @@ ApplicationWindow {
                                             font.family: "Microsoft YaHei UI"
                                             font.pixelSize: 11
                                             font.bold: active
-                                            color: active ? "#93C5FD" : "#94A3B8"
+                                            color: active ? Theme.accentSoftText : Theme.textSecondary
                                         }
                                         MouseArea {
                                             id: chipMa
@@ -1032,7 +1079,6 @@ ApplicationWindow {
                                 Layout.fillWidth: true
                                 spacing: 12
                                 opacity: compressCtrl.resizeEnabled ? 1.0 : 0.4
-                                Behavior on opacity { NumberAnimation { duration: 150 } }
 
                                 FloatingInput {
                                     Layout.fillWidth: true
@@ -1060,7 +1106,7 @@ ApplicationWindow {
                                     text: "×"
                                     font.family: "Segoe UI"
                                     font.pixelSize: 16
-                                    color: "#64748B"
+                                    color: Theme.textMuted
                                     Layout.topMargin: 8
                                 }
 
@@ -1129,7 +1175,6 @@ ApplicationWindow {
                                 spacing: 4
                                 enabled: !compressCtrl.losslessMode
                                 opacity: compressCtrl.losslessMode ? 0.4 : 1.0
-                                Behavior on opacity { NumberAnimation { duration: 150 } }
 
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -1137,12 +1182,13 @@ ApplicationWindow {
                                         text: "压缩质量 (Quality)"
                                         font.family: "Microsoft YaHei UI"
                                         font.pixelSize: 12
-                                        color: "#CBD5E1"
+                                        color: Theme.textSecondary
                                     }
                                     Item { Layout.fillWidth: true }
                                     Rectangle {
                                         radius: 5
-                                        color: "#1E3A8A"
+                                        color: Theme.accentSoftBg
+                                        border.color: Theme.accentSoftBorder
                                         Layout.preferredWidth: 46
                                         Layout.preferredHeight: 22
                                         Text {
@@ -1151,7 +1197,7 @@ ApplicationWindow {
                                             font.family: "Segoe UI"
                                             font.pixelSize: 12
                                             font.bold: true
-                                            color: "#93C5FD"
+                                            color: Theme.accentSoftText
                                         }
                                     }
                                 }
@@ -1171,12 +1217,12 @@ ApplicationWindow {
                                         width: qSlider.availableWidth
                                         height: 6
                                         radius: 3
-                                        color: "#181B22"
+                                        color: Theme.inputBorder
 
                                         Rectangle {
                                             width: qSlider.visualPosition * parent.width
                                             height: parent.height
-                                            color: "#3B82F6"
+                                            color: Theme.accent
                                             radius: 3
                                         }
                                     }
@@ -1187,11 +1233,11 @@ ApplicationWindow {
                                         width: 18
                                         height: 18
                                         radius: 9
-                                        scale: qSlider.pressed ? 1.2 : 1.0
-                                        color: qSlider.pressed ? "#FFFFFF" : "#60A5FA"
-                                        border.color: "#1E3A8A"
-                                        border.width: 2
-                                        Behavior on scale { NumberAnimation { duration: 120 } }
+                                        scale: qSlider.pressed ? 1.18 : 1.0
+                                        color: "#FFFFFF"
+                                        border.color: Theme.accent
+                                        border.width: 3
+                                        Behavior on scale { NumberAnimation { duration: 100 } }
                                     }
                                 }
                             }
@@ -1259,7 +1305,7 @@ ApplicationWindow {
                         }
                     }
 
-                    // ==================== TAB 1: 画质与水印 (Privacy, Enhancement & Watermark) ====================
+                    // ==================== TAB 1: 画质与水印 ====================
                     ColumnLayout {
                         anchors.left: parent.left
                         anchors.right: parent.right
@@ -1268,10 +1314,10 @@ ApplicationWindow {
                         visible: opacity > 0.01
                         opacity: window.activeSettingsTab === 1 ? 1.0 : 0.0
                         transform: Translate {
-                            x: window.activeSettingsTab === 1 ? 0 : 18
-                            Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                            x: window.activeSettingsTab === 1 ? 0 : 14
+                            Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
                         }
-                        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                        Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                         SectionCard {
                             Layout.fillWidth: true
@@ -1313,7 +1359,7 @@ ApplicationWindow {
                                     text: "色彩滤镜:"
                                     font.family: "Microsoft YaHei UI"
                                     font.pixelSize: 12
-                                    color: "#94A3B8"
+                                    color: Theme.textSecondary
                                 }
                                 ModernComboBox {
                                     Layout.fillWidth: true
@@ -1323,7 +1369,7 @@ ApplicationWindow {
                                 }
                             }
 
-                            Rectangle { Layout.fillWidth: true; height: 1; color: "#323844" }
+                            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.cardBorder }
 
                             ModernCheckBox {
                                 text: "叠加文字防盗水印"
@@ -1336,7 +1382,6 @@ ApplicationWindow {
                                 Layout.fillWidth: true
                                 enabled: compressCtrl.watermarkEnabled
                                 opacity: compressCtrl.watermarkEnabled ? 1.0 : 0.4
-                                Behavior on opacity { NumberAnimation { duration: 150 } }
                                 spacing: 10
 
                                 FloatingInput {
@@ -1357,7 +1402,7 @@ ApplicationWindow {
                         }
                     }
 
-                    // ==================== TAB 2: 输出设置 (Output Path, Naming & CLI Preview) ====================
+                    // ==================== TAB 2: 输出设置 ====================
                     ColumnLayout {
                         anchors.left: parent.left
                         anchors.right: parent.right
@@ -1366,10 +1411,10 @@ ApplicationWindow {
                         visible: opacity > 0.01
                         opacity: window.activeSettingsTab === 2 ? 1.0 : 0.0
                         transform: Translate {
-                            x: window.activeSettingsTab === 2 ? 0 : 18
-                            Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                            x: window.activeSettingsTab === 2 ? 0 : 14
+                            Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
                         }
-                        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                        Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                         SectionCard {
                             Layout.fillWidth: true
@@ -1399,14 +1444,14 @@ ApplicationWindow {
                                     Layout.preferredHeight: 44
                                     Layout.topMargin: 8
                                     radius: 8
-                                    color: browseMa.containsMouse ? "#384152" : "#2D3340"
-                                    border.color: "#475569"
+                                    color: browseMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg
+                                    border.color: Theme.btnSecBorder
                                     Text {
                                         anchors.centerIn: parent
                                         text: "浏览..."
                                         font.family: "Microsoft YaHei UI"
                                         font.pixelSize: 12
-                                        color: "#E2E8F0"
+                                        color: Theme.textPrimary
                                     }
                                     MouseArea {
                                         id: browseMa
@@ -1449,8 +1494,8 @@ ApplicationWindow {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 74
                                 radius: 8
-                                color: "#14171D"
-                                border.color: "#2B313E"
+                                color: Theme.inputBg
+                                border.color: Theme.inputBorder
 
                                 Text {
                                     anchors.fill: parent
@@ -1458,7 +1503,7 @@ ApplicationWindow {
                                     text: compressCtrl.commandPreview
                                     font.family: "Consolas"
                                     font.pixelSize: 11
-                                    color: "#93C5FD"
+                                    color: Theme.accent
                                     wrapMode: Text.WrapAnywhere
                                 }
                             }
@@ -1477,9 +1522,9 @@ ApplicationWindow {
                     scale: startMa.pressed ? 0.97 : 1.0
                     color: compressCtrl.isRunning
                            ? "#DC2626"
-                           : (startMa.containsMouse ? "#60A5FA" : "#3B82F6")
+                           : (startMa.containsMouse ? Theme.accentHover : Theme.accent)
 
-                    Behavior on color { ColorAnimation { duration: 160 } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
                     Behavior on scale { NumberAnimation { duration: 100 } }
 
                     // Progress bar overlay while running
@@ -1489,7 +1534,6 @@ ApplicationWindow {
                         height: parent.height
                         radius: 10
                         color: "#33FFFFFF"
-                        Behavior on width { NumberAnimation { duration: 150 } }
                     }
 
                     RowLayout {
@@ -1534,11 +1578,11 @@ ApplicationWindow {
         height: 40
         width: toastLbl.implicitWidth + 36
         radius: 20
-        color: window.toastError ? "#991B1B" : "#1E3A8A"
-        border.color: window.toastError ? "#F87171" : "#60A5FA"
+        color: window.toastError ? Theme.dangerBg : Theme.accent
+        border.color: window.toastError ? Theme.dangerBorder : Theme.accentHover
 
-        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-        Behavior on anchors.bottomMargin { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
+        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
 
         Text {
             id: toastLbl
@@ -1547,7 +1591,7 @@ ApplicationWindow {
             font.family: "Microsoft YaHei UI"
             font.pixelSize: 13
             font.bold: true
-            color: "#F8FAFC"
+            color: window.toastError ? Theme.dangerText : "#FFFFFF"
         }
     }
 }

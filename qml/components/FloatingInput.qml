@@ -17,9 +17,6 @@ Item {
     readonly property bool isFocused: textInput.activeFocus
     readonly property bool isHovered: hoverHandler.hovered
 
-    scale: isFocused ? 1.01 : 1.0
-    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-
     HoverHandler {
         id: hoverHandler
     }
@@ -34,15 +31,15 @@ Item {
         anchors.bottom: parent.bottom
         radius: 8
         color: !root.inputEnabled
-               ? "#1C1F24"
-               : (root.isFocused ? "#1E2430" : (root.isHovered ? "#252A34" : "#21252D"))
+               ? Theme.inputDisabledBg
+               : (root.isFocused ? Theme.inputFocusBg : (root.isHovered ? Theme.inputHoverBg : Theme.inputBg))
         border.width: root.isFocused ? 1.5 : 1
         border.color: !root.inputEnabled
-                      ? "#2F343D"
-                      : (root.isFocused ? "#60A5FA" : (root.isHovered ? "#525B6C" : "#3B414D"))
+                      ? Theme.cardBorder
+                      : (root.isFocused ? Theme.accent : (root.isHovered ? Theme.cardHoverBorder : Theme.inputBorder))
 
-        Behavior on color { ColorAnimation { duration: 150 } }
-        Behavior on border.color { ColorAnimation { duration: 150 } }
+        Behavior on color { ColorAnimation { duration: 140 } }
+        Behavior on border.color { ColorAnimation { duration: 140 } }
     }
 
     // Floating label pill background
@@ -52,7 +49,8 @@ Item {
         width: labelItem.implicitWidth + 10
         height: 16
         radius: 4
-        color: "#262A32"
+        color: Theme.cardBg
+        Behavior on color { ColorAnimation { duration: 140 } }
     }
 
     Text {
@@ -63,8 +61,8 @@ Item {
         font.family: "Microsoft YaHei UI"
         font.pixelSize: 11
         font.bold: root.isFocused
-        color: !root.inputEnabled ? "#646B78" : (root.isFocused ? "#93C5FD" : "#94A3B8")
-        Behavior on color { ColorAnimation { duration: 150 } }
+        color: !root.inputEnabled ? Theme.textMuted : (root.isFocused ? Theme.accent : Theme.textSecondary)
+        Behavior on color { ColorAnimation { duration: 140 } }
     }
 
     TextInput {
@@ -84,8 +82,8 @@ Item {
         font.family: "Segoe UI"
         font.pixelSize: 15
         font.bold: true
-        color: root.inputEnabled ? "#F1F5F9" : "#646B78"
-        selectionColor: "#3B82F6"
+        color: root.inputEnabled ? Theme.textPrimary : Theme.textMuted
+        selectionColor: Theme.accent
 
         onTextEdited: {
             root.text = textInput.text
@@ -104,6 +102,6 @@ Item {
         text: root.placeholderText
         font.family: "Microsoft YaHei UI"
         font.pixelSize: 13
-        color: "#565E6C"
+        color: Theme.textMuted
     }
 }
