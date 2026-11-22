@@ -26,6 +26,7 @@ class ImageMagickManager : public QObject {
 
 public:
     explicit ImageMagickManager(QObject* parent = nullptr);
+    ~ImageMagickManager() override;
 
     QString currentVersion() const { return m_currentVersion; }
     QString currentQuantum() const { return m_currentQuantum; }
@@ -50,6 +51,7 @@ public:
     Q_INVOKABLE void installFromLocalArchive(const QUrl& fileUrl);
     Q_INVOKABLE void installFromLocalDirectory(const QUrl& dirUrl);
     Q_INVOKABLE void cancelDownload();
+    Q_INVOKABLE void cleanupTempFiles();
 
 signals:
     void engineChanged();

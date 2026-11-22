@@ -34,6 +34,9 @@ CompressionController::CompressionController(ImageTaskModel* model,
     m_maxThreads = qBound(1, QThread::idealThreadCount() / 2, 8);
     loadSettings();
 
+    // Clean up any leftover temp directory from an abnormal previous termination
+    QDir(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("temp"))).removeRecursively();
+
     m_saveTimer.setSingleShot(true);
     m_saveTimer.setInterval(400);
     connect(&m_saveTimer, &QTimer::timeout, this, &CompressionController::saveSettings);
@@ -41,8 +44,34 @@ CompressionController::CompressionController(ImageTaskModel* model,
 
 CompressionController::~CompressionController()
 {
-    m_cancelRequested.store(true);
+    shutdownAndCleanup();
     saveSettings();
+}
+
+void CompressionController::cleanupTempDirectories()
+{
+    QSet<QString> roots;
+    {
+        QMutexLocker lock(&m_tempDirsMutex);
+        roots = m_usedTempRoots;
+        m_usedTempRoots.clear();
+    }
+    roots.insert(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("temp")));
+
+    for (const QString& root : std::as_const(roots)) {
+        if (!root.isEmpty()) {
+            QDir(root).removeRecursively();
+        }
+    }
+}
+
+void CompressionController::shutdownAndCleanup()
+{
+    m_cancelRequested.store(true);
+    if (m_batchFuture.isRunning()) {
+        m_batchFuture.waitForFinished();
+    }
+    cleanupTempDirectories();
 }
 
 #define DEFINE_SETTER(Name, Member, Type) \
@@ -276,23 +305,49 @@ QString CompressionController::resolveOutputPath(const QString& inputPath, QStri
     return QDir(targetDir).filePath(baseName + QStringLiteral(".") + outExt);
 }
 
+static bool isSystemCDrive(const QString& path)
+{
+    if (path.isEmpty()) return true;
+    QString existingAnchor = path;
+    while (!QFileInfo::exists(existingAnchor)) {
+        const QString parent = QFileInfo(existingAnchor).absolutePath();
+        if (parent == existingAnchor || parent.isEmpty()) break;
+        existingAnchor = parent;
+    }
+    const QStorageInfo st(existingAnchor);
+    if (st.isValid() && st.rootPath().compare(QStringLiteral("C:/"), Qt::CaseInsensitive) == 0) {
+        return true;
+    }
+    return QDir::toNativeSeparators(QFileInfo(path).absoluteFilePath())
+        .startsWith(QStringLiteral("C:"), Qt::CaseInsensitive);
+}
+
 QString CompressionController::resolveMagickTempRoot(const QString& outputDir) const
 {
-    QStringList candidates;
-    candidates << QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("temp"));
-    if (!outputDir.isEmpty()) {
-        candidates << QDir(outputDir).filePath(QStringLiteral(".pz_temp"));
+    QStringList nonCCandidates;
+    const QString appTemp = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("temp"));
+    if (!isSystemCDrive(appTemp)) {
+        nonCCandidates << appTemp;
     }
-    const QString sysTemp = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-    if (!sysTemp.isEmpty()) {
-        candidates << QDir(sysTemp).filePath(QStringLiteral("PhotoZipper_im_temp"));
+    if (!outputDir.isEmpty()) {
+        const QString outTemp = QDir(outputDir).filePath(QStringLiteral(".pz_temp"));
+        if (!isSystemCDrive(outTemp)) {
+            nonCCandidates << outTemp;
+        }
+    }
+    if (nonCCandidates.isEmpty()) {
+        const auto volumes = QStorageInfo::mountedVolumes();
+        for (const QStorageInfo& vol : volumes) {
+            if (!vol.isValid() || !vol.isReady() || vol.isReadOnly()) continue;
+            if (vol.rootPath().compare(QStringLiteral("C:/"), Qt::CaseInsensitive) == 0) continue;
+            nonCCandidates << QDir(vol.rootPath()).filePath(QStringLiteral("PhotoZipper_temp"));
+        }
     }
 
     QString bestPath;
     qint64 bestFreeBytes = -1;
-    for (const QString& candidate : candidates) {
+    for (const QString& candidate : std::as_const(nonCCandidates)) {
         if (candidate.isEmpty()) continue;
-        QFileInfo probe(candidate);
         QString existingAnchor = candidate;
         while (!QFileInfo::exists(existingAnchor)) {
             const QString parent = QFileInfo(existingAnchor).absolutePath();
@@ -307,10 +362,16 @@ QString CompressionController::resolveMagickTempRoot(const QString& outputDir) c
         }
     }
 
-    if (!bestPath.isEmpty()) {
-        return bestPath;
+    if (bestPath.isEmpty()) {
+        QDir().mkpath(appTemp);
+        bestPath = appTemp;
     }
-    return sysTemp;
+
+    {
+        QMutexLocker lock(&m_tempDirsMutex);
+        m_usedTempRoots.insert(bestPath);
+    }
+    return bestPath;
 }
 
 QStringList CompressionController::buildMagickArguments(const QString& inputPath,
@@ -472,7 +533,11 @@ static bool runMagickProcess(const QString& magickExe,
     proc.setWorkingDirectory(magickDir);
     if (!tempDir.isEmpty()) {
         QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-        env.insert(QStringLiteral("MAGICK_TEMPORARY_PATH"), QDir::toNativeSeparators(tempDir));
+        const QString nativeTmp = QDir::toNativeSeparators(tempDir);
+        env.insert(QStringLiteral("MAGICK_TEMPORARY_PATH"), nativeTmp);
+        env.insert(QStringLiteral("TMPDIR"), nativeTmp);
+        env.insert(QStringLiteral("TEMP"), nativeTmp);
+        env.insert(QStringLiteral("TMP"), nativeTmp);
         proc.setProcessEnvironment(env);
     }
 
@@ -523,7 +588,7 @@ void CompressionController::startBatchCompression()
     const int total = m_model->totalCount();
     const int threads = qBound(1, m_maxThreads, 8);
 
-    (void)QtConcurrent::run([this, magickExe, magickDir, total, threads]() {
+    m_batchFuture = QtConcurrent::run([this, magickExe, magickDir, total, threads]() {
         std::atomic<int> finishedCounter{0};
         std::atomic<int> successCounter{0};
         std::atomic<int> failedCounter{0};
@@ -659,6 +724,8 @@ void CompressionController::startBatchCompression()
         for (auto& f : futures) {
             f.waitForFinished();
         }
+
+        cleanupTempDirectories();
 
         const int okCount = successCounter.load();
         const int failCount = failedCounter.load();

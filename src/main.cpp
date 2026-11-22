@@ -11,7 +11,6 @@
 #include <QDir>
 #include <QImage>
 #include <QPainter>
-#include <QStandardPaths>
 #include <QSettings>
 
 #include "ImageTaskModel.h"
@@ -35,6 +34,9 @@ int main(int argc, char *argv[])
     fmt.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
     fmt.setSwapInterval(1);
     QSurfaceFormat::setDefaultFormat(fmt);
+
+    // Keep C: drive clean (only QSettings config is stored in registry; QML is AOT-compiled into the exe)
+    qputenv("QML_DISABLE_DISK_CACHE", "1");
 
     // Cap Qt UI image decoder allocation limit to 256MB to keep UI RAM low on giant 8K+/16K+ photos
     // (does not restrict ImageMagick compression workers)
@@ -82,7 +84,10 @@ int main(int argc, char *argv[])
             QObject::connect(&themeMgr, &ThemeManager::themeChanged, win, [&themeMgr, win]() {
                 themeMgr.applyWindowTheme(win);
             });
-            QObject::connect(&app, &QCoreApplication::aboutToQuit, &app, [&compressCtrl, win]() {
+            QObject::connect(&app, &QCoreApplication::aboutToQuit, &app, [&compressCtrl, &engineMgr, win]() {
+                compressCtrl.shutdownAndCleanup();
+                engineMgr.cleanupTempFiles();
+                QDir(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("temp"))).removeRecursively();
                 compressCtrl.saveSettings();
                 QSettings s(QStringLiteral("PhotoZipper"), QStringLiteral("PhotoZipperCpp"));
                 s.setValue(QStringLiteral("ui/windowWidth"), win->width());
@@ -94,8 +99,8 @@ int main(int argc, char *argv[])
     QTimer::singleShot(1500, &memMonitor, &MemoryMonitor::trimWorkingSet);
 
     auto createSyntheticTestImages = []() -> QStringList {
-        const QString tempDir = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
-                                    .filePath(QStringLiteral("photozipper_selftest"));
+        const QString tempDir = QDir(QCoreApplication::applicationDirPath())
+                                    .filePath(QStringLiteral("temp/selftest"));
         QDir(tempDir).removeRecursively();
         QDir().mkpath(tempDir);
 

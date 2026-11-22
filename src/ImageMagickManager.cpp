@@ -11,7 +11,6 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSettings>
-#include <QStandardPaths>
 #include <QtConcurrent>
 
 ImageMagickManager::ImageMagickManager(QObject* parent)
@@ -20,6 +19,20 @@ ImageMagickManager::ImageMagickManager(QObject* parent)
     QSettings settings(QStringLiteral("PhotoZipper"), QStringLiteral("PhotoZipperCpp"));
     m_preferredQuantum = settings.value(QStringLiteral("engine/preferredQuantum"), QStringLiteral("Q8")).toString();
     detectLocalEngine();
+}
+
+ImageMagickManager::~ImageMagickManager()
+{
+    cancelDownload();
+    cleanupTempFiles();
+}
+
+void ImageMagickManager::cleanupTempFiles()
+{
+    const QString appDir = QCoreApplication::applicationDirPath();
+    QDir(QDir(appDir).filePath(QStringLiteral("temp/engine_dl"))).removeRecursively();
+    QDir(QDir(appDir).filePath(QStringLiteral("engine/staging_im"))).removeRecursively();
+    QDir(QDir(appDir).filePath(QStringLiteral("engine/old_im"))).removeRecursively();
 }
 
 QString ImageMagickManager::engineDirectory() const
@@ -255,7 +268,7 @@ void ImageMagickManager::startDownloadUrl(const QString& url, const QString& tar
     emit progressChanged();
     setStatus(QStringLiteral("正在下载 ImageMagick %1 (%2)...").arg(targetTag, quantum));
 
-    const QString tempRoot = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    const QString tempRoot = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("temp/engine_dl"));
     QDir().mkpath(tempRoot);
     const QString archivePath = QDir(tempRoot).filePath(QStringLiteral("im_update_%1.7z").arg(targetTag));
     QFile::remove(archivePath);
@@ -303,6 +316,7 @@ void ImageMagickManager::startDownloadUrl(const QString& url, const QString& tar
 
         if (reply->error() != QNetworkReply::NoError) {
             QFile::remove(archivePath);
+            QDir(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("temp/engine_dl"))).removeRecursively();
             m_isBusy = false;
             emit busyChanged();
             setStatus(QStringLiteral("下载已取消或失败: %1").arg(reply->errorString()));
@@ -317,6 +331,7 @@ void ImageMagickManager::startDownloadUrl(const QString& url, const QString& tar
             QString err;
             const bool ok = extractAndSlimReplace(archivePath, targetTag, quantum, err);
             QFile::remove(archivePath);
+            QDir(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("temp/engine_dl"))).removeRecursively();
 
             QMetaObject::invokeMethod(this, [this, ok, err, targetTag, quantum]() {
                 m_isBusy = false;

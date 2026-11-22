@@ -1,6 +1,9 @@
 #pragma once
 
+#include <QFuture>
+#include <QMutex>
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QTimer>
 #include <QUrl>
@@ -151,6 +154,7 @@ public:
     Q_INVOKABLE void compressSingleItem(int row);
     Q_INVOKABLE void openFileInExplorer(const QString& filePath);
     Q_INVOKABLE void saveSettings() const;
+    Q_INVOKABLE void shutdownAndCleanup();
 
 signals:
     void settingsChanged();
@@ -161,6 +165,7 @@ signals:
 
 private:
     void loadSettings();
+    void cleanupTempDirectories();
     QString resolveMagickTempRoot(const QString& outputDir) const;
     QStringList buildMagickArguments(const QString& inputPath,
                                      const QString& outputPath,
@@ -216,4 +221,7 @@ private:
     bool m_isRunning = false;
     double m_batchProgress = 0.0;
     std::atomic<bool> m_cancelRequested{false};
+    QFuture<void> m_batchFuture;
+    mutable QMutex m_tempDirsMutex;
+    mutable QSet<QString> m_usedTempRoots;
 };
