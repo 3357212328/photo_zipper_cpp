@@ -7,6 +7,7 @@ Popup {
     id: root
     width: 720
     height: 580
+    padding: 0
     modal: true
     focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -77,6 +78,8 @@ Popup {
         // Title bar
         RowLayout {
             Layout.fillWidth: true
+            spacing: 12
+
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 3
@@ -95,16 +98,23 @@ Popup {
                 }
             }
 
+            Item { Layout.fillWidth: true }
+
             Rectangle {
-                Layout.preferredWidth: 30
-                Layout.preferredHeight: 30
-                radius: 7
-                color: closeMa.containsMouse ? Theme.btnSecHoverBg : "transparent"
+                Layout.preferredWidth: 32
+                Layout.preferredHeight: 32
+                Layout.alignment: Qt.AlignRight | Qt.AlignTop
+                radius: 8
+                color: closeMa.containsMouse ? Theme.dangerBg : Theme.btnSecBg
+                border.color: closeMa.containsMouse ? Theme.dangerBorder : Theme.btnSecBorder
+                Behavior on color { ColorAnimation { duration: 130 } }
+
                 Text {
                     anchors.centerIn: parent
                     text: "✕"
                     font.pixelSize: 14
-                    color: Theme.textSecondary
+                    font.bold: true
+                    color: closeMa.containsMouse ? Theme.dangerText : Theme.textSecondary
                 }
                 MouseArea {
                     id: closeMa
