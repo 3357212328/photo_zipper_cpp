@@ -210,7 +210,7 @@ Popup {
                         GradientStop { position: 1.0; color: (engineManager && engineManager.isBusy) ? Theme.btnSecBg : Theme.accentEnd }
                     }
                     scale: latestMa.pressed ? 0.96 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 100 } }
+                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                     RowLayout {
                         anchors.centerIn: parent
@@ -286,7 +286,7 @@ Popup {
                     border.color: locPkgMa.containsMouse ? Theme.accent : Theme.btnSecBorder
                     scale: locPkgMa.pressed ? 0.96 : 1.0
                     Behavior on color { ColorAnimation { duration: 130 } }
-                    Behavior on scale { NumberAnimation { duration: 100 } }
+                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                     RowLayout {
                         anchors.centerIn: parent
@@ -319,7 +319,7 @@ Popup {
                     border.color: locDirMa.containsMouse ? Theme.accent : Theme.btnSecBorder
                     scale: locDirMa.pressed ? 0.96 : 1.0
                     Behavior on color { ColorAnimation { duration: 130 } }
-                    Behavior on scale { NumberAnimation { duration: 100 } }
+                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                     RowLayout {
                         anchors.centerIn: parent
@@ -516,7 +516,7 @@ Popup {
                             border.color: isCurrent ? Theme.btnSecBorder : Theme.accent
                             scale: swMa.pressed ? 0.96 : 1.0
                             Behavior on color { ColorAnimation { duration: 130 } }
-                            Behavior on scale { NumberAnimation { duration: 100 } }
+                            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                             Text {
                                 anchors.centerIn: parent

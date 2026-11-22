@@ -37,6 +37,7 @@ qt_add_qml_module(PhotoZipper
         qml/Main.qml
         qml/components/VectorIcon.qml
         qml/components/CompactInput.qml
+        qml/components/SegmentedControl.qml
         qml/components/ModernCheckBox.qml
         qml/components/ModernComboBox.qml
         qml/components/CompareView.qml

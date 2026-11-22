@@ -210,7 +210,7 @@ ApplicationWindow {
                         GradientStop { position: 1.0; color: Theme.accentEnd }
                     }
                     scale: addFileMa.pressed ? 0.96 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 100 } }
+                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                     RowLayout {
                         id: addFileRow
@@ -243,7 +243,7 @@ ApplicationWindow {
                     border.color: addDirMa.containsMouse ? Theme.cardHoverBorder : Theme.btnSecBorder
                     scale: addDirMa.pressed ? 0.96 : 1.0
                     Behavior on color { ColorAnimation { duration: 130 } }
-                    Behavior on scale { NumberAnimation { duration: 100 } }
+                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                     RowLayout {
                         id: addDirRow
@@ -278,7 +278,7 @@ ApplicationWindow {
                     border.color: window.showComparePanel ? Theme.accentSoftBorder : (cmpToggleMa.containsMouse ? Theme.cardHoverBorder : Theme.btnSecBorder)
                     scale: cmpToggleMa.pressed ? 0.96 : 1.0
                     Behavior on color { ColorAnimation { duration: 130 } }
-                    Behavior on scale { NumberAnimation { duration: 100 } }
+                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                     RowLayout {
                         id: cmpRow
@@ -350,7 +350,7 @@ ApplicationWindow {
                     border.color: themeMa.containsMouse ? Theme.accent : Theme.btnSecBorder
                     scale: themeMa.pressed ? 0.96 : 1.0
                     Behavior on color { ColorAnimation { duration: 130 } }
-                    Behavior on scale { NumberAnimation { duration: 100 } }
+                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                     RowLayout {
                         id: themeRow
@@ -387,7 +387,7 @@ ApplicationWindow {
                     border.color: engineMgr.isInstalled ? (engMa.containsMouse ? Theme.accent : Theme.btnSecBorder) : Theme.dangerBorder
                     scale: engMa.pressed ? 0.96 : 1.0
                     Behavior on color { ColorAnimation { duration: 130 } }
-                    Behavior on scale { NumberAnimation { duration: 100 } }
+                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                     RowLayout {
                         id: engBtnRow
@@ -686,7 +686,7 @@ ApplicationWindow {
                                         GradientStop { position: 1.0; color: Theme.accentEnd }
                                     }
                                     scale: emptyAddMa.pressed ? 0.96 : 1.0
-                                    Behavior on scale { NumberAnimation { duration: 100 } }
+                                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                                     RowLayout {
                                         anchors.centerIn: parent
@@ -717,7 +717,7 @@ ApplicationWindow {
                                     border.color: emptyFolderMa.containsMouse ? Theme.accent : Theme.btnSecBorder
                                     scale: emptyFolderMa.pressed ? 0.96 : 1.0
                                     Behavior on color { ColorAnimation { duration: 130 } }
-                                    Behavior on scale { NumberAnimation { duration: 100 } }
+                                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                                     RowLayout {
                                         anchors.centerIn: parent
@@ -1048,6 +1048,9 @@ ApplicationWindow {
                             border.color: Theme.cardBorder
 
                             readonly property real tabWidth: (width - 6) / 3
+                            property bool ready: false
+                            property int pressedTab: -1
+                            Component.onCompleted: Qt.callLater(function() { ready = true })
 
                             // Sliding elevated pill indicator
                             Rectangle {
@@ -1058,9 +1061,14 @@ ApplicationWindow {
                                 radius: 7
                                 color: Theme.surfaceElevated
                                 border.color: Theme.cardHoverBorder
+                                scale: tabBarContainer.pressedTab === window.activeSettingsTab ? 0.96 : 1.0
 
                                 Behavior on x {
-                                    NumberAnimation { duration: 190; easing.type: Easing.OutCubic }
+                                    enabled: tabBarContainer.ready
+                                    NumberAnimation { duration: 210; easing.type: Easing.OutCubic }
+                                }
+                                Behavior on scale {
+                                    NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
                                 }
                             }
 
@@ -1082,6 +1090,8 @@ ApplicationWindow {
                                         RowLayout {
                                             anchors.centerIn: parent
                                             spacing: 5
+                                            scale: tabMa.pressed ? 0.94 : 1.0
+                                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
                                             VectorIcon {
                                                 name: modelData.icon
                                                 size: 13
@@ -1093,12 +1103,17 @@ ApplicationWindow {
                                                 font.pixelSize: 12
                                                 font.bold: window.activeSettingsTab === index
                                                 color: window.activeSettingsTab === index ? Theme.textPrimary : Theme.textSecondary
+                                                Behavior on color { ColorAnimation { duration: 130 } }
                                             }
                                         }
 
                                         MouseArea {
+                                            id: tabMa
                                             anchors.fill: parent
                                             cursorShape: Qt.PointingHandCursor
+                                            onPressed: tabBarContainer.pressedTab = index
+                                            onReleased: tabBarContainer.pressedTab = -1
+                                            onCanceled: tabBarContainer.pressedTab = -1
                                             onClicked: compressCtrl.activeSettingsTab = index
                                         }
                                     }
@@ -1135,7 +1150,7 @@ ApplicationWindow {
                             }
                             Behavior on opacity { NumberAnimation { duration: 150 } }
 
-                            // 1. 快捷预设 (5-pill row)
+                            // 1. 快捷预设 (Sliding SegmentedControl)
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 7
@@ -1148,40 +1163,13 @@ ApplicationWindow {
                                     color: Theme.textSecondary
                                 }
 
-                                RowLayout {
+                                SegmentedControl {
                                     Layout.fillWidth: true
-                                    spacing: 5
-                                    Repeater {
-                                        model: ["均衡", "WebP", "高清", "限体积", "无损"]
-                                        delegate: Rectangle {
-                                            readonly property bool active: window.activePresetIndex === index
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 28
-                                            radius: 6
-                                            color: active ? Theme.accentSoftBg : (preMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg)
-                                            border.color: active ? Theme.accentSoftBorder : Theme.btnSecBorder
-                                            scale: preMa.pressed ? 0.95 : 1.0
-                                            Behavior on color { ColorAnimation { duration: 120 } }
-                                            Behavior on scale { NumberAnimation { duration: 90 } }
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: modelData
-                                                font.family: "Microsoft YaHei UI"
-                                                font.pixelSize: 11
-                                                font.bold: active
-                                                color: active ? Theme.accentSoftText : Theme.textSecondary
-                                            }
-                                            MouseArea {
-                                                id: preMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    compressCtrl.applyPreset(index)
-                                                }
-                                            }
-                                        }
+                                    Layout.preferredHeight: 32
+                                    items: ["均衡", "WebP", "高清", "限体积", "无损"]
+                                    currentIndex: window.activePresetIndex
+                                    onActivated: function(idx) {
+                                        compressCtrl.applyPreset(idx)
                                     }
                                 }
                             }
@@ -1280,43 +1268,14 @@ ApplicationWindow {
                                     Item { Layout.fillWidth: true }
 
                                     // Lock Axis Segmented Pill (按宽度 | 按高度)
-                                    Rectangle {
+                                    SegmentedControl {
                                         visible: compressCtrl.keepAspectRatioShrinkOnly
-                                        Layout.preferredWidth: 112
+                                        Layout.preferredWidth: 118
                                         Layout.preferredHeight: 26
-                                        radius: 7
-                                        color: Theme.inputBg
-                                        border.color: Theme.cardBorder
-
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.margins: 2
-                                            spacing: 2
-                                            Repeater {
-                                                model: ["按宽度", "按高度"]
-                                                delegate: Rectangle {
-                                                    readonly property bool act: compressCtrl.aspectDimension === index
-                                                    Layout.fillWidth: true
-                                                    Layout.fillHeight: true
-                                                    radius: 5
-                                                    color: act ? Theme.accentSoftBg : "transparent"
-                                                    border.color: act ? Theme.accentSoftBorder : "transparent"
-                                                    Text {
-                                                        anchors.centerIn: parent
-                                                        text: modelData
-                                                        font.family: "Microsoft YaHei UI"
-                                                        font.pixelSize: 10
-                                                        font.bold: act
-                                                        color: act ? Theme.accentSoftText : Theme.textSecondary
-                                                    }
-                                                    MouseArea {
-                                                        anchors.fill: parent
-                                                        cursorShape: Qt.PointingHandCursor
-                                                        onClicked: compressCtrl.aspectDimension = index
-                                                    }
-                                                }
-                                            }
-                                        }
+                                        fontPixelSize: 10
+                                        items: ["按宽度", "按高度"]
+                                        currentIndex: compressCtrl.aspectDimension
+                                        onActivated: function(idx) { compressCtrl.aspectDimension = idx }
                                     }
                                 }
 
@@ -1326,43 +1285,14 @@ ApplicationWindow {
                                     opacity: compressCtrl.resizeEnabled ? 1.0 : 0.4
                                     spacing: 6
 
-                                    // 2-pill Resize Mode (宽高 | 比例)
-                                    Rectangle {
+                                    // 2-pill Resize Mode (按宽高 | 按比例)
+                                    SegmentedControl {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 32
-                                        radius: 8
-                                        color: Theme.inputBg
-                                        border.color: Theme.cardBorder
-
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.margins: 3
-                                            spacing: 3
-                                            Repeater {
-                                                model: ["按宽高", "按比例"]
-                                                delegate: Rectangle {
-                                                    readonly property bool act: compressCtrl.resizeMode === index
-                                                    Layout.fillWidth: true
-                                                    Layout.fillHeight: true
-                                                    radius: 6
-                                                    color: act ? Theme.surfaceElevated : "transparent"
-                                                    border.color: act ? Theme.cardHoverBorder : "transparent"
-                                                    Text {
-                                                        anchors.centerIn: parent
-                                                        text: modelData
-                                                        font.family: "Microsoft YaHei UI"
-                                                        font.pixelSize: 11
-                                                        font.bold: act
-                                                        color: act ? Theme.textPrimary : Theme.textSecondary
-                                                    }
-                                                    MouseArea {
-                                                        anchors.fill: parent
-                                                        cursorShape: Qt.PointingHandCursor
-                                                        onClicked: compressCtrl.resizeMode = index
-                                                    }
-                                                }
-                                            }
-                                        }
+                                        accentStyle: false
+                                        items: ["按宽高", "按比例"]
+                                        currentIndex: compressCtrl.resizeMode
+                                        onActivated: function(idx) { compressCtrl.resizeMode = idx }
                                     }
 
                                     ModernComboBox {
@@ -1483,45 +1413,15 @@ ApplicationWindow {
                                     }
                                 }
 
-                                // 6-Pill Output Format Selector
-                                GridLayout {
+                                // 6-Pill Output Format Selector (Sliding SegmentedControl)
+                                SegmentedControl {
+                                    readonly property var formatCodes: ["original", "jpg", "webp", "avif", "png", "jxl"]
                                     Layout.fillWidth: true
-                                    columns: 6
-                                    columnSpacing: 5
-                                    Repeater {
-                                        model: [
-                                            { code: "original", label: "原格式" },
-                                            { code: "jpg",      label: "JPG" },
-                                            { code: "webp",     label: "WebP" },
-                                            { code: "avif",     label: "AVIF" },
-                                            { code: "png",      label: "PNG" },
-                                            { code: "jxl",      label: "JXL" }
-                                        ]
-                                        delegate: Rectangle {
-                                            readonly property bool act: compressCtrl.outputFormat === modelData.code
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 28
-                                            radius: 6
-                                            color: act ? Theme.accentSoftBg : (fmtMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg)
-                                            border.color: act ? Theme.accentSoftBorder : Theme.btnSecBorder
-                                            Behavior on color { ColorAnimation { duration: 120 } }
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: modelData.label
-                                                font.family: "Microsoft YaHei UI"
-                                                font.pixelSize: 11
-                                                font.bold: act
-                                                color: act ? Theme.accentSoftText : Theme.textSecondary
-                                            }
-                                            MouseArea {
-                                                id: fmtMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: compressCtrl.outputFormat = modelData.code
-                                            }
-                                        }
+                                    Layout.preferredHeight: 32
+                                    items: ["原格式", "JPG", "WebP", "AVIF", "PNG", "JXL"]
+                                    currentIndex: Math.max(0, formatCodes.indexOf(compressCtrl.outputFormat))
+                                    onActivated: function(idx) {
+                                        compressCtrl.outputFormat = formatCodes[idx]
                                     }
                                 }
 
@@ -1636,35 +1536,12 @@ ApplicationWindow {
                                     font.bold: true
                                     color: Theme.textPrimary
                                 }
-                                RowLayout {
+                                SegmentedControl {
                                     Layout.fillWidth: true
-                                    spacing: 6
-                                    Repeater {
-                                        model: ["原色", "黑白灰度", "自动增强", "复古怀旧"]
-                                        delegate: Rectangle {
-                                            readonly property bool act: compressCtrl.colorFilter === index
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 30
-                                            radius: 7
-                                            color: act ? Theme.accentSoftBg : (fltMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg)
-                                            border.color: act ? Theme.accentSoftBorder : Theme.btnSecBorder
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: modelData
-                                                font.family: "Microsoft YaHei UI"
-                                                font.pixelSize: 11
-                                                font.bold: act
-                                                color: act ? Theme.accentSoftText : Theme.textSecondary
-                                            }
-                                            MouseArea {
-                                                id: fltMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: compressCtrl.colorFilter = index
-                                            }
-                                        }
-                                    }
+                                    Layout.preferredHeight: 32
+                                    items: ["原色", "黑白灰度", "自动增强", "复古怀旧"]
+                                    currentIndex: compressCtrl.colorFilter
+                                    onActivated: function(idx) { compressCtrl.colorFilter = idx }
                                 }
                             }
 
@@ -1702,35 +1579,14 @@ ApplicationWindow {
                                     onEditingCompleted: function(v) { compressCtrl.watermarkText = v }
                                 }
 
-                                RowLayout {
+                                SegmentedControl {
                                     Layout.fillWidth: true
+                                    Layout.preferredHeight: 30
                                     enabled: compressCtrl.watermarkEnabled
                                     opacity: compressCtrl.watermarkEnabled ? 1.0 : 0.4
-                                    spacing: 5
-                                    Repeater {
-                                        model: ["右下", "左下", "右上", "左上", "居中"]
-                                        delegate: Rectangle {
-                                            readonly property bool act: compressCtrl.watermarkPosition === index
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 28
-                                            radius: 6
-                                            color: act ? Theme.accentSoftBg : Theme.btnSecBg
-                                            border.color: act ? Theme.accentSoftBorder : Theme.btnSecBorder
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: modelData
-                                                font.family: "Microsoft YaHei UI"
-                                                font.pixelSize: 11
-                                                font.bold: act
-                                                color: act ? Theme.accentSoftText : Theme.textSecondary
-                                            }
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: compressCtrl.watermarkPosition = index
-                                            }
-                                        }
-                                    }
+                                    items: ["右下", "左下", "右上", "左上", "居中"]
+                                    currentIndex: compressCtrl.watermarkPosition
+                                    onActivated: function(idx) { compressCtrl.watermarkPosition = idx }
                                 }
                             }
                         }
@@ -1761,35 +1617,12 @@ ApplicationWindow {
                                     color: Theme.textPrimary
                                 }
 
-                                RowLayout {
+                                SegmentedControl {
                                     Layout.fillWidth: true
-                                    spacing: 6
-                                    Repeater {
-                                        model: ["compressed目录", "自定义目录", "覆盖原图"]
-                                        delegate: Rectangle {
-                                            readonly property bool act: compressCtrl.outputDirMode === index
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 30
-                                            radius: 7
-                                            color: act ? Theme.accentSoftBg : (outMa.containsMouse ? Theme.btnSecHoverBg : Theme.btnSecBg)
-                                            border.color: act ? Theme.accentSoftBorder : Theme.btnSecBorder
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: modelData
-                                                font.family: "Microsoft YaHei UI"
-                                                font.pixelSize: 11
-                                                font.bold: act
-                                                color: act ? Theme.accentSoftText : Theme.textSecondary
-                                            }
-                                            MouseArea {
-                                                id: outMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: compressCtrl.outputDirMode = index
-                                            }
-                                        }
-                                    }
+                                    Layout.preferredHeight: 32
+                                    items: ["compressed目录", "自定义目录", "覆盖原图"]
+                                    currentIndex: compressCtrl.outputDirMode
+                                    onActivated: function(idx) { compressCtrl.outputDirMode = idx }
                                 }
 
                                 RowLayout {
@@ -1903,7 +1736,7 @@ ApplicationWindow {
                             anchors.margins: 14
                             radius: 10
                             scale: startMa.pressed ? 0.97 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 100 } }
+                            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
