@@ -460,6 +460,7 @@ ApplicationWindow {
                 // Active Queue Summary Bar (only shown when queue has items)
                 Rectangle {
                     visible: taskModel.totalCount > 0
+                    z: 5
                     Layout.fillWidth: true
                     Layout.preferredHeight: 42
                     color: Theme.cardAltBg
@@ -574,6 +575,7 @@ ApplicationWindow {
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    clip: true
 
                     // Centered Modern Dashed-Border Dropzone
                     Item {
@@ -747,7 +749,11 @@ ApplicationWindow {
                     ListView {
                         id: taskListView
                         anchors.fill: parent
-                        anchors.margins: 14
+                        topMargin: 14
+                        bottomMargin: 14
+                        leftMargin: 14
+                        rightMargin: 14
+                        clip: true
                         spacing: 8
                         visible: taskModel.totalCount > 0
                         model: taskModel
@@ -767,7 +773,7 @@ ApplicationWindow {
                         }
 
                         delegate: Rectangle {
-                            width: taskListView.width - 8
+                            width: taskListView.width - taskListView.leftMargin - taskListView.rightMargin - 8
                             height: 64
                             radius: 10
                             readonly property bool isSelected: index === window.selectedTaskIndex
