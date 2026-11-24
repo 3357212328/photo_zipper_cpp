@@ -457,88 +457,143 @@ ApplicationWindow {
 
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: Theme.headerBorder; Layout.leftMargin: 2; Layout.rightMargin: 2 }
 
-                // Custom Modern Window Controls (Minimize / Maximize / Close)
-                RowLayout {
-                    spacing: 4
+                // Custom Modern Window Controls (Minimize / Maximize / Close) with cohesive sliding hover pill
+                Item {
+                    id: winCtrlGroup
+                    Layout.preferredWidth: 102
+                    Layout.preferredHeight: 30
 
+                    property int hoveredIdx: -1
+                    property int pressedIdx: -1
+                    property int lastIdx: 0
+                    property bool animateSlide: false
+
+                    function enterButton(idx) {
+                        animateSlide = (hoveredIdx >= 0 && hoveredIdx !== idx)
+                        lastIdx = idx
+                        hoveredIdx = idx
+                    }
+                    function exitButton(idx) {
+                        if (hoveredIdx === idx) hoveredIdx = -1
+                    }
+
+                    // Single shared sliding hover highlight (fades via opacity, never interpolates through "transparent" black)
                     Rectangle {
-                        Layout.preferredWidth: 30
-                        Layout.preferredHeight: 28
+                        y: 2
+                        width: 30
+                        height: 26
                         radius: 7
-                        color: minMa.containsMouse ? Theme.btnSecHoverBg : "transparent"
-                        scale: minMa.pressed ? 0.92 : 1.0
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                        x: winCtrlGroup.lastIdx * 34 + 2
+                        opacity: winCtrlGroup.hoveredIdx >= 0 ? 1.0 : 0.0
+                        color: winCtrlGroup.lastIdx === 2
+                               ? (winCtrlGroup.pressedIdx === 2 ? "#DC2626" : "#EF4444")
+                               : Theme.btnSecHoverBg
 
-                        VectorIcon {
-                            anchors.centerIn: parent
-                            name: "win-min"
-                            size: 13
-                            strokeWidth: 1.8
-                            color: minMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+                        Behavior on x {
+                            enabled: winCtrlGroup.animateSlide
+                            NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
                         }
-                        MouseArea {
-                            id: minMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: window.showMinimized()
+                        Behavior on opacity {
+                            NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on color {
+                            enabled: winCtrlGroup.animateSlide || winCtrlGroup.hoveredIdx >= 0
+                            ColorAnimation { duration: 130; easing.type: Easing.OutCubic }
                         }
                     }
 
-                    Rectangle {
-                        Layout.preferredWidth: 30
-                        Layout.preferredHeight: 28
-                        radius: 7
-                        color: maxMa.containsMouse ? Theme.btnSecHoverBg : "transparent"
-                        scale: maxMa.pressed ? 0.92 : 1.0
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                    Row {
+                        anchors.fill: parent
+                        spacing: 0
 
-                        VectorIcon {
-                            anchors.centerIn: parent
-                            name: window.visibility === Window.Maximized ? "win-restore" : "win-max"
-                            size: 12
-                            strokeWidth: 1.7
-                            color: maxMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+                        // 0: Minimize
+                        Item {
+                            width: 34
+                            height: 30
+                            scale: winCtrlGroup.pressedIdx === 0 ? 0.88 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
+
+                            VectorIcon {
+                                anchors.centerIn: parent
+                                name: "win-min"
+                                size: 13
+                                strokeWidth: 1.8
+                                color: winCtrlGroup.hoveredIdx === 0 ? Theme.textPrimary : Theme.textSecondary
+                                Behavior on color { ColorAnimation { duration: 110 } }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: winCtrlGroup.enterButton(0)
+                                onExited: { winCtrlGroup.exitButton(0); if (winCtrlGroup.pressedIdx === 0) winCtrlGroup.pressedIdx = -1 }
+                                onPressed: winCtrlGroup.pressedIdx = 0
+                                onReleased: if (winCtrlGroup.pressedIdx === 0) winCtrlGroup.pressedIdx = -1
+                                onCanceled: if (winCtrlGroup.pressedIdx === 0) winCtrlGroup.pressedIdx = -1
+                                onClicked: window.showMinimized()
+                            }
                         }
-                        MouseArea {
-                            id: maxMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (window.visibility === Window.Maximized) {
-                                    window.showNormal()
-                                } else {
-                                    window.showMaximized()
+
+                        // 1: Maximize / Restore
+                        Item {
+                            width: 34
+                            height: 30
+                            scale: winCtrlGroup.pressedIdx === 1 ? 0.88 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
+
+                            VectorIcon {
+                                anchors.centerIn: parent
+                                name: window.visibility === Window.Maximized ? "win-restore" : "win-max"
+                                size: 12
+                                strokeWidth: 1.7
+                                color: winCtrlGroup.hoveredIdx === 1 ? Theme.textPrimary : Theme.textSecondary
+                                Behavior on color { ColorAnimation { duration: 110 } }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: winCtrlGroup.enterButton(1)
+                                onExited: { winCtrlGroup.exitButton(1); if (winCtrlGroup.pressedIdx === 1) winCtrlGroup.pressedIdx = -1 }
+                                onPressed: winCtrlGroup.pressedIdx = 1
+                                onReleased: if (winCtrlGroup.pressedIdx === 1) winCtrlGroup.pressedIdx = -1
+                                onCanceled: if (winCtrlGroup.pressedIdx === 1) winCtrlGroup.pressedIdx = -1
+                                onClicked: {
+                                    if (window.visibility === Window.Maximized) {
+                                        window.showNormal()
+                                    } else {
+                                        window.showMaximized()
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    Rectangle {
-                        Layout.preferredWidth: 30
-                        Layout.preferredHeight: 28
-                        radius: 7
-                        color: closeWinMa.pressed ? "#DC2626" : (closeWinMa.containsMouse ? "#EF4444" : "transparent")
-                        scale: closeWinMa.pressed ? 0.92 : 1.0
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                        // 2: Close
+                        Item {
+                            width: 34
+                            height: 30
+                            scale: winCtrlGroup.pressedIdx === 2 ? 0.88 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
 
-                        VectorIcon {
-                            anchors.centerIn: parent
-                            name: "x"
-                            size: 13
-                            strokeWidth: 1.9
-                            color: closeWinMa.containsMouse ? "#FFFFFF" : Theme.textSecondary
-                        }
-                        MouseArea {
-                            id: closeWinMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: window.close()
+                            VectorIcon {
+                                anchors.centerIn: parent
+                                name: "x"
+                                size: 13
+                                strokeWidth: 1.9
+                                color: winCtrlGroup.hoveredIdx === 2 ? "#FFFFFF" : Theme.textSecondary
+                                Behavior on color { ColorAnimation { duration: 110 } }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: winCtrlGroup.enterButton(2)
+                                onExited: { winCtrlGroup.exitButton(2); if (winCtrlGroup.pressedIdx === 2) winCtrlGroup.pressedIdx = -1 }
+                                onPressed: winCtrlGroup.pressedIdx = 2
+                                onReleased: if (winCtrlGroup.pressedIdx === 2) winCtrlGroup.pressedIdx = -1
+                                onCanceled: if (winCtrlGroup.pressedIdx === 2) winCtrlGroup.pressedIdx = -1
+                                onClicked: window.close()
+                            }
                         }
                     }
                 }
