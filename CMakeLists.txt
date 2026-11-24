@@ -26,6 +26,7 @@ qt_add_executable(PhotoZipper WIN32
     src/CompressionController.cpp
     src/MemoryMonitor.h
     src/MemoryMonitor.cpp
+    src/WinFramelessFilter.h
     resources/app.rc
     resources/resources.qrc
 )

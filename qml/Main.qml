@@ -150,11 +150,34 @@ ApplicationWindow {
             color: Theme.headerBg
             Behavior on color { ColorAnimation { duration: 180 } }
 
+            // Native DWM smooth window drag & double-click maximize/restore on empty titlebar area
+            Item {
+                anchors.fill: parent
+                TapHandler {
+                    onDoubleTapped: {
+                        if (window.visibility === Window.Maximized) {
+                            window.showNormal()
+                        } else {
+                            window.showMaximized()
+                        }
+                    }
+                }
+                DragHandler {
+                    target: null
+                    dragThreshold: 3
+                    onActiveChanged: {
+                        if (active) {
+                            window.startSystemMove()
+                        }
+                    }
+                }
+            }
+
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 16
-                anchors.rightMargin: 16
-                spacing: 10
+                anchors.leftMargin: 14
+                anchors.rightMargin: 10
+                spacing: 8
 
                 // Brand Icon + Title + Version Badge
                 Rectangle {
@@ -429,6 +452,94 @@ ApplicationWindow {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: engineDialog.open()
+                    }
+                }
+
+                Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: Theme.headerBorder; Layout.leftMargin: 2; Layout.rightMargin: 2 }
+
+                // Custom Modern Window Controls (Minimize / Maximize / Close)
+                RowLayout {
+                    spacing: 4
+
+                    Rectangle {
+                        Layout.preferredWidth: 30
+                        Layout.preferredHeight: 28
+                        radius: 7
+                        color: minMa.containsMouse ? Theme.btnSecHoverBg : "transparent"
+                        scale: minMa.pressed ? 0.92 : 1.0
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+
+                        VectorIcon {
+                            anchors.centerIn: parent
+                            name: "win-min"
+                            size: 13
+                            strokeWidth: 1.8
+                            color: minMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+                        }
+                        MouseArea {
+                            id: minMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: window.showMinimized()
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: 30
+                        Layout.preferredHeight: 28
+                        radius: 7
+                        color: maxMa.containsMouse ? Theme.btnSecHoverBg : "transparent"
+                        scale: maxMa.pressed ? 0.92 : 1.0
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+
+                        VectorIcon {
+                            anchors.centerIn: parent
+                            name: window.visibility === Window.Maximized ? "win-restore" : "win-max"
+                            size: 12
+                            strokeWidth: 1.7
+                            color: maxMa.containsMouse ? Theme.textPrimary : Theme.textSecondary
+                        }
+                        MouseArea {
+                            id: maxMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (window.visibility === Window.Maximized) {
+                                    window.showNormal()
+                                } else {
+                                    window.showMaximized()
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: 30
+                        Layout.preferredHeight: 28
+                        radius: 7
+                        color: closeWinMa.pressed ? "#DC2626" : (closeWinMa.containsMouse ? "#EF4444" : "transparent")
+                        scale: closeWinMa.pressed ? 0.92 : 1.0
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+
+                        VectorIcon {
+                            anchors.centerIn: parent
+                            name: "x"
+                            size: 13
+                            strokeWidth: 1.9
+                            color: closeWinMa.containsMouse ? "#FFFFFF" : Theme.textSecondary
+                        }
+                        MouseArea {
+                            id: closeWinMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: window.close()
+                        }
                     }
                 }
             }

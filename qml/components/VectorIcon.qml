@@ -44,6 +44,9 @@ Item {
         case "zoom-in":       return "M11 5 A6 6 0 1 0 11 17 A6 6 0 1 0 11 5 M21 21 L15.5 15.5 M11 8 V14 M8 11 H14"
         case "zoom-out":      return "M11 5 A6 6 0 1 0 11 17 A6 6 0 1 0 11 5 M21 21 L15.5 15.5 M8 11 H14"
         case "maximize":      return "M4 9 V4 H9 M15 4 H20 V9 M20 15 V20 H15 M9 20 H4 V15"
+        case "win-min":       return "M5 12 H19"
+        case "win-max":       return "M6 6 H18 V18 H6 Z"
+        case "win-restore":   return "M8 9 H18 V19 H8 Z M6 15 V6 H15"
         default:              return ""
         }
     }

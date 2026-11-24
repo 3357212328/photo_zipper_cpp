@@ -12,12 +12,14 @@
 #include <QImage>
 #include <QPainter>
 #include <QSettings>
+#include <memory>
 
 #include "ImageTaskModel.h"
 #include "ImageMagickManager.h"
 #include "CompressionController.h"
 #include "MemoryMonitor.h"
 #include "ThemeManager.h"
+#include "WinFramelessFilter.h"
 
 int main(int argc, char *argv[])
 {
@@ -71,8 +73,13 @@ int main(int argc, char *argv[])
 
     engine.loadFromModule("PhotoZipper", "Main");
 
+    std::unique_ptr<WinFramelessFilter> framelessFilter;
     if (const auto rootObjs = engine.rootObjects(); !rootObjs.isEmpty()) {
         if (auto* win = qobject_cast<QQuickWindow*>(rootObjs.first())) {
+            framelessFilter = std::make_unique<WinFramelessFilter>(win);
+            app.installNativeEventFilter(framelessFilter.get());
+            WinFramelessFilter::setupWindow(win);
+
             QSettings uiSettings(QStringLiteral("PhotoZipper"), QStringLiteral("PhotoZipperCpp"));
             const int savedW = uiSettings.value(QStringLiteral("ui/windowWidth"), 1280).toInt();
             const int savedH = uiSettings.value(QStringLiteral("ui/windowHeight"), 820).toInt();
